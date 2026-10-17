@@ -1,0 +1,14 @@
+{
+  "name": "agentready",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AI Readiness Checker: scan a website and see how well AI crawlers can read it.",
+  "scripts": {
+    "install:all": "npm --prefix agentready-api install && npm --prefix web install",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm --prefix agentready-api run dev:memory\" \"npm --prefix web run dev\"",
+    "build": "npm --prefix agentready-api run build && npm --prefix web run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
