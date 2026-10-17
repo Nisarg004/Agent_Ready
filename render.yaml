@@ -25,6 +25,4 @@ services:
       # (*.vercel.app and codenixlabs.com are already allowed by the code)
       - key: FRONTEND_URLS
         sync: false
-      # This service's own public URL, e.g. https://agentready-api.onrender.com
-      - key: APP_URL
-        sync: false
+      # APP_URL is optional: it defaults to Render's RENDER_EXTERNAL_URL.

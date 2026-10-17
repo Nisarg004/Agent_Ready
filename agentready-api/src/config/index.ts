@@ -15,7 +15,12 @@ const frontendUrls = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '
 export const config = {
   port: num(process.env.PORT, 5100),
   nodeEnv: process.env.NODE_ENV || 'development',
-  appUrl: (process.env.APP_URL || `http://localhost:${num(process.env.PORT, 5100)}`).replace(/\/+$/, ''),
+  // Render sets RENDER_EXTERNAL_URL to the service's public address.
+  appUrl: (
+    process.env.APP_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    `http://localhost:${num(process.env.PORT, 5100)}`
+  ).replace(/\/+$/, ''),
   frontendUrls,
 
   mongoUri: process.env.MONGODB_URI || '',
