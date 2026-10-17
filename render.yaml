@@ -1,0 +1,30 @@
+# Render Blueprint for the AgentReady API.
+# In Render: New + → Blueprint → pick this repo. Render will ask you to fill
+# in every value marked `sync: false` (those are secrets, never commit them).
+services:
+  - type: web
+    name: agentready-api
+    runtime: node
+    rootDir: agentready-api
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: LEAD_NOTIFY_EMAIL
+        sync: false
+      # Your Vercel URL, e.g. https://agentready.vercel.app
+      # (*.vercel.app and codenixlabs.com are already allowed by the code)
+      - key: FRONTEND_URLS
+        sync: false
+      # This service's own public URL, e.g. https://agentready-api.onrender.com
+      - key: APP_URL
+        sync: false
