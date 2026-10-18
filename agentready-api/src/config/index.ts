@@ -68,6 +68,13 @@ export const config = {
     cacheHours: num(process.env.SCAN_CACHE_HOURS, 1),
     rateLimitPerHour: num(process.env.SCAN_RATE_LIMIT_PER_HOUR, 5),
     /**
+     * Shared secret for our own Fetch.ai agent. Every chat user's scan reaches
+     * us from the agent's single server address, so the per-IP limit would let
+     * five people an hour use it in total. The agent sends this key to skip the
+     * IP limit and applies its own per-user limit instead. Empty disables it.
+     */
+    agentApiKey: process.env.AGENT_API_KEY || '',
+    /**
      * How many pages beyond the homepage to sample. The spec said 3; 5 is the
      * most the 15-second budget absorbs comfortably, since they are fetched in
      * parallel, and a wider sample is the single cheapest way to make the

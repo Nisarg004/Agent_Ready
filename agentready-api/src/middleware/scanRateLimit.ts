@@ -1,6 +1,17 @@
+import { timingSafeEqual } from 'crypto';
 import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import { config } from '../config';
+
+/** True when the request carries our own agent's key (see config.scanner.agentApiKey). */
+function isTrustedAgent(req: Request): boolean {
+  const expected = config.scanner.agentApiKey;
+  const given = req.get('x-agent-key');
+  if (!expected || !given) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /**
  * Which visitor is this?
@@ -55,6 +66,7 @@ export const scanRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: config.scanner.rateLimitPerHour,
   keyGenerator: clientKey,
+  skip: isTrustedAgent,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
