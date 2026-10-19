@@ -1,0 +1,335 @@
+[
+  {
+    "site": "https://stride-lab-beta.vercel.app",
+    "task": "running shoes under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": false,
+        "detail": "The page is almost empty without JavaScript (2 words). An AI agent sees a blank shell instead of a shop.",
+        "evidence": [
+          "Homepage: 2 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": false,
+        "detail": "Could not find any products: no product links, sitemap, structured data or llms.txt were found.",
+        "evidence": [
+          "llms.txt: not found",
+          "sitemap.xml product URLs: 0",
+          "Listing pages read: 2 · product links found: 0",
+          "Products read: 0 (0 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": false,
+        "detail": "Skipped: nothing to compare.",
+        "evidence": []
+      },
+      {
+        "name": "Add to cart",
+        "passed": false,
+        "detail": "Skipped: no product was chosen.",
+        "evidence": []
+      },
+      {
+        "name": "Checkout link",
+        "passed": false,
+        "detail": "Skipped: there is no cart to check out.",
+        "evidence": []
+      }
+    ],
+    "chosen": null,
+    "compared": [],
+    "checkout_url": null,
+    "blocked_agents": [],
+    "seconds": 0.8,
+    "passed": 0,
+    "total": 5
+  },
+  {
+    "site": "https://nest-and-grain.vercel.app",
+    "task": "a dining chair under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 246 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: not found",
+          "sitemap.xml product URLs: 0",
+          "Listing pages read: 8 · product links found: 26",
+          "Products read: 26 (0 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Linen Upholstered Dining Chair (₹7,900) with Nordic Dining Chair (Set of 2) (₹8,900); both fit equally, so it chose the cheaper one.",
+        "evidence": [
+          "Data from page text",
+          "Data from page text"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Linen Upholstered Dining Chair to the cart using the site's own form.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Submitted the page's own form: POST /products/linen-dining-chair → HTTP 200",
+          "Cart page /cart shows the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": false,
+        "detail": "The cart only exists inside the agent's own session (a cookie or browser storage), so the checkout link opens an empty cart for the human.",
+        "evidence": [
+          "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Linen Upholstered Dining Chair",
+      "price": 7900.0,
+      "url": "https://nest-and-grain.vercel.app/products/linen-dining-chair"
+    },
+    "compared": [
+      {
+        "name": "Linen Upholstered Dining Chair",
+        "price": 7900.0,
+        "url": "https://nest-and-grain.vercel.app/products/linen-dining-chair",
+        "source": "page text"
+      },
+      {
+        "name": "Nordic Dining Chair (Set of 2)",
+        "price": 8900.0,
+        "url": "https://nest-and-grain.vercel.app/products/nordic-dining-chair",
+        "source": "page text"
+      }
+    ],
+    "checkout_url": null,
+    "blocked_agents": [],
+    "seconds": 8.3,
+    "passed": 4,
+    "total": 5
+  },
+  {
+    "site": "https://masala-mandi.onrender.com",
+    "task": "garam masala under ₹500",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 348 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: not found",
+          "sitemap.xml product URLs: 0",
+          "Listing pages read: 8 · product links found: 25",
+          "Products read: 25 (0 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Shahi Garam Masala (₹129) with Dalchini (Cinnamon) (₹79); Shahi Garam Masala matches the request more closely.",
+        "evidence": [
+          "Data from page text",
+          "Data from page text"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Shahi Garam Masala to the cart using the site's own form.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Submitted the page's own form: POST /cart/add → HTTP 200",
+          "Cart page /cart shows the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": false,
+        "detail": "The cart page has no checkout link an agent can find. The cart page says: “Minimum order is ₹299”.",
+        "evidence": []
+      }
+    ],
+    "chosen": {
+      "name": "Shahi Garam Masala",
+      "price": 129.0,
+      "url": "https://masala-mandi.onrender.com/product/garam-masala"
+    },
+    "compared": [
+      {
+        "name": "Shahi Garam Masala",
+        "price": 129.0,
+        "url": "https://masala-mandi.onrender.com/product/garam-masala",
+        "source": "page text"
+      },
+      {
+        "name": "Dalchini (Cinnamon)",
+        "price": 79.0,
+        "url": "https://masala-mandi.onrender.com/product/dalchini-cinnamon",
+        "source": "page text"
+      }
+    ],
+    "checkout_url": null,
+    "blocked_agents": [],
+    "seconds": 2.9,
+    "passed": 4,
+    "total": 5
+  },
+  {
+    "site": "https://tara-handmade.vercel.app",
+    "task": "a pearl necklace under ₹6,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 240 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": false,
+        "detail": "Could not find any products: no product links or product data could be read without JavaScript.",
+        "evidence": [
+          "llms.txt: not found",
+          "sitemap.xml product URLs: 0",
+          "Listing pages read: 5 · product links found: 4",
+          "Product pages with no readable product (needs JavaScript): 4",
+          "Products read: 0 (0 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": false,
+        "detail": "Skipped: nothing to compare.",
+        "evidence": []
+      },
+      {
+        "name": "Add to cart",
+        "passed": false,
+        "detail": "Skipped: no product was chosen.",
+        "evidence": []
+      },
+      {
+        "name": "Checkout link",
+        "passed": false,
+        "detail": "Skipped: there is no cart to check out.",
+        "evidence": []
+      }
+    ],
+    "chosen": null,
+    "compared": [],
+    "checkout_url": null,
+    "blocked_agents": [],
+    "seconds": 0.6,
+    "passed": 1,
+    "total": 5
+  },
+  {
+    "site": "https://voltkart.onrender.com",
+    "task": "wireless earbuds under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 358 words of readable text without JavaScript",
+          "robots.txt: found",
+          "robots.txt blocks: GPTBot, ClaudeBot, CCBot"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: not found",
+          "sitemap.xml product URLs: 0",
+          "Listing pages read: 8 · product links found: 21",
+          "Products read: 21 (0 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Volt Essentials Buds Air TWS Earbuds (₹1,299) with Google Pixel Buds A-Series (₹6,999); both fit equally, so it chose the cheaper one.",
+        "evidence": [
+          "Data from page text",
+          "Data from page text"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": false,
+        "detail": "robots.txt tells automated agents not to use /cart/add, so a well-behaved agent stops here.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": false,
+        "detail": "Skipped: there is no cart to check out.",
+        "evidence": []
+      }
+    ],
+    "chosen": {
+      "name": "Volt Essentials Buds Air TWS Earbuds",
+      "price": 1299.0,
+      "url": "https://voltkart.onrender.com/p/volt-buds-air"
+    },
+    "compared": [
+      {
+        "name": "Volt Essentials Buds Air TWS Earbuds",
+        "price": 1299.0,
+        "url": "https://voltkart.onrender.com/p/volt-buds-air",
+        "source": "page text"
+      },
+      {
+        "name": "Google Pixel Buds A-Series",
+        "price": 6999.0,
+        "url": "https://voltkart.onrender.com/p/google-pixel-buds-a-series",
+        "source": "page text"
+      }
+    ],
+    "checkout_url": null,
+    "blocked_agents": [
+      "GPTBot",
+      "ClaudeBot",
+      "CCBot"
+    ],
+    "seconds": 2.7,
+    "passed": 3,
+    "total": 5
+  }
+]

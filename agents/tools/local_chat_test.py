@@ -4,6 +4,7 @@ Runs the real agent and a small test client together in one Bureau, so
 messages are delivered locally: no Agentverse, mailbox or ASI:One needed.
 
     python tools/local_chat_test.py "Is example.com ready for AI shoppers?"
+    python tools/local_chat_test.py --tester "running shoes under ₹10,000 on stride-lab-beta.vercel.app"
 """
 
 from __future__ import annotations
@@ -25,9 +26,16 @@ load_dotenv(ROOT / ".env")
 from uagents import Agent, Bureau, Context  # noqa: E402
 from uagents_core.contrib.protocols.chat import ChatAcknowledgement, ChatMessage, TextContent  # noqa: E402
 
-from agent import create_agent  # noqa: E402
+use_tester = "--tester" in sys.argv
+args = [a for a in sys.argv[1:] if a != "--tester"]
 
-question = " ".join(sys.argv[1:]) or "Is example.com ready for AI shoppers?"
+if use_tester:
+    sys.path.insert(0, str(ROOT))
+    from tester_agent.agent import create_agent  # noqa: E402
+else:
+    from agent import create_agent  # noqa: E402
+
+question = " ".join(args) or "Is example.com ready for AI shoppers?"
 
 agentready = create_agent(mailbox=False, port=8001)
 client = Agent(name="test-client", seed=os.getenv("TEST_CLIENT_SEED", "agentready local test client seed"))
@@ -48,7 +56,7 @@ async def on_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
 async def on_reply(ctx: Context, sender: str, msg: ChatMessage):
     for item in msg.content:
         if isinstance(item, TextContent):
-            print("<<< AGENTREADY:\n" + item.text + "\n", flush=True)
+            print(f"<<< {'TESTER' if use_tester else 'AGENTREADY'}:\n" + item.text + "\n", flush=True)
     # One question, one answer: stop the bureau.
     asyncio.get_running_loop().call_later(0.5, lambda: os._exit(0))
 

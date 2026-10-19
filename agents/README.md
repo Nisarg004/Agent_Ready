@@ -9,8 +9,36 @@ Agent Chat Protocol, so they can be used from ASI:One.
 | Agent | What it does | Address |
 |---|---|---|
 | **AgentReady** | Scans a website and explains how well AI shopping agents can find, read and buy from it | `agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v` (local dev seed) |
+| **AgentReady Tester** | Actually tries to shop on a website like an AI agent (find, compare, add to cart, get a checkout link) and reports each step | `agent1qvxkjpe6z7gnheuzqhf6hp6cuwld7serzjuhktyvdph9cgn3vgf6zw3zv2e` (local dev seed) |
 
-Coming next: "What AI sees", agent-access settings, auto-fix Pull Requests, and a Shopper agent that proves the fixes work.
+Coming next: the Fixer (agent-access settings and auto-fix Pull Requests), which asks the Tester to prove each fix works.
+
+## How the Tester works
+
+It reads a site the way most AI agents do, as plain HTML with no JavaScript, keeping cookies only for its own session and honouring `robots.txt`. Nothing in it is specific to any store.
+
+| Step | Passes when |
+|---|---|
+| 1. Reach the site | The homepage has readable content without JavaScript |
+| 2. Find products | Products matching the request can be read from links, sitemap, `llms.txt` or structured data |
+| 3. Compare options | At least two matches have a readable name and price |
+| 4. Add to cart | The product lands in a cart through something the site exposes (an agent API or a plain HTML form) and `robots.txt` allows it |
+| 5. Checkout link | A link opened by the human, with no agent cookies, shows a checkout containing the chosen product |
+
+```bash
+python tools/run_tester.py https://example-store.com "running shoes under ₹10,000"
+python tools/run_tester.py --demo --json results/latest.json   # all five demo stores
+```
+
+Baseline on the five demo stores (19 Oct 2026, `results/baseline-2026-10-19.json`):
+
+| Store | Stack | Steps passed | Stops at |
+|---|---|---|---|
+| [Stride Lab](https://stride-lab-beta.vercel.app) | React SPA | 0/5 | Page is empty without JavaScript |
+| [Nest & Grain](https://nest-and-grain.vercel.app) | Next.js | 4/5 | Cart is tied to the agent's session; checkout link opens empty for the human |
+| [Masala Mandi](https://masala-mandi.onrender.com) | Flask | 4/5 | ₹299 minimum order; cart tied to the agent's session |
+| [Tara Handmade](https://tara-handmade.vercel.app) | Plain HTML/JS | 1/5 | Product pages are drawn by JavaScript |
+| [VoltKart](https://voltkart.onrender.com) | Node/Express | 3/5 | `robots.txt` disallows `/cart` for automated agents |
 
 ## Run it locally
 
@@ -50,6 +78,11 @@ python agentready_agent/agent.py
 |---|---|
 | `agentready_agent/agent.py` | uAgent + chat protocol wiring, per-user scan limit |
 | `agentready_agent/brain.py` | Understands the message (ASI:One `asi1` model, regex fallback), calls the AgentReady API, writes the reply |
-| `tools/local_chat_test.py` | Local end-to-end chat test |
+| `tester_agent/agent.py` | Tester uAgent + chat protocol wiring, per-user run limit |
+| `tester_agent/shopper.py` | The five shopping steps and the report |
+| `tester_agent/web.py` | Plain-HTTP "browser": cookies, robots.txt, form posts |
+| `tester_agent/signals.py` | Reads text, structured data, links, prices and forms from a page |
+| `tools/run_tester.py` | Run the Tester from the command line |
+| `tools/local_chat_test.py` | Local end-to-end chat test (`--tester` for the Tester) |
 
 The agent sends `AGENT_API_KEY` to the AgentReady API so all its users don't share one IP's public scan limit. Set the same value as `AGENT_API_KEY` on the API.
