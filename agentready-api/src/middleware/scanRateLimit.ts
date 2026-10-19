@@ -48,7 +48,7 @@ function clientKey(req: Request): string {
 }
 
 /**
- * Spec section 7: max 5 scans per IP per hour (10 in the current deployment).
+ * Spec section 7 said 5 scans per IP per hour; raised to 25 by default (override with SCAN_RATE_LIMIT_PER_HOUR).
  *
  * Shared between POST /api/scan and POST /api/scan/:id/compare so a visitor
  * cannot get an extra crawl for free by routing it through the comparison

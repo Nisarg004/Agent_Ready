@@ -66,7 +66,7 @@ export const config = {
     totalTimeoutMs: num(process.env.SCAN_TOTAL_TIMEOUT_MS, 20000),
     requestTimeoutMs: num(process.env.SCAN_REQUEST_TIMEOUT_MS, 10000),
     cacheHours: num(process.env.SCAN_CACHE_HOURS, 1),
-    rateLimitPerHour: num(process.env.SCAN_RATE_LIMIT_PER_HOUR, 5),
+    rateLimitPerHour: num(process.env.SCAN_RATE_LIMIT_PER_HOUR, 25),
     /**
      * Shared secret for our own Fetch.ai agent. Every chat user's scan reaches
      * us from the agent's single server address, so the per-IP limit would let

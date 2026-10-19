@@ -33,7 +33,7 @@ import brain  # noqa: E402
 
 # Our API lets this agent skip its per-IP limit, so the agent limits each
 # chat user instead. In memory is enough: a restart forgiving everyone is fine.
-SCANS_PER_HOUR = int(os.getenv("AGENT_SCANS_PER_USER_PER_HOUR", "10"))
+SCANS_PER_HOUR = int(os.getenv("AGENT_SCANS_PER_USER_PER_HOUR", "25"))
 # The AgentReady Tester agent we ask to try shopping on each site.
 TESTER_ADDRESS = os.getenv("TESTER_AGENT_ADDRESS", "").strip()
 TESTER_TIMEOUT_S = int(os.getenv("TESTER_TIMEOUT_S", "150"))
