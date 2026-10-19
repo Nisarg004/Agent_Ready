@@ -8,6 +8,7 @@ registration.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -60,12 +61,12 @@ def _regex_url(text: str) -> str | None:
 
 async def understand(text: str) -> Intent:
     """Work out what the user wants. ASI:One's model first, a regex as backup."""
-    if _llm:
+    for _attempt in range(2 if _llm else 0):
         try:
             r = await _llm.chat.completions.create(
                 model=ASI1_MODEL,
                 temperature=0,
-                max_tokens=150,
+                max_tokens=500,
                 messages=[
                     {
                         "role": "system",
@@ -82,6 +83,8 @@ async def understand(text: str) -> Intent:
                 ],
             )
             raw = (r.choices[0].message.content or "").strip()
+            if "{" not in raw:
+                continue  # empty or truncated answer: ask once more
             raw = raw[raw.find("{") : raw.rfind("}") + 1]
             data = json.loads(raw)
             url = data.get("url") or _regex_url(text)
@@ -103,13 +106,42 @@ class ScanError(Exception):
     """A scan failed in a way the user should be told about in plain words."""
 
 
-async def run_scan(url: str) -> dict:
+SERVER_ERROR_RE = re.compile(r"\(HTTP 5\d\d\)|returned an error \(HTTP 5", re.I)
+
+
+async def wake_site(url: str, attempts: int = 4) -> bool:
+    """Load the homepage until it answers, the way a person would retry a slow site.
+
+    Free hosting plans put idle sites to sleep, and a sleeping site answers 502/503
+    for up to a minute. Scanning it then would grade the outage, not the website.
+    Returns False if the site never came up.
+    """
+    target = url if url.startswith("http") else f"https://{url}"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=15.0), follow_redirects=True) as client:
+        for i in range(attempts):
+            try:
+                r = await client.get(target)
+                if r.status_code < 500:
+                    return True
+            except httpx.HTTPError:
+                pass
+            if i < attempts - 1:
+                await asyncio.sleep(8)
+    return False
+
+
+def had_server_error(scan: dict) -> bool:
+    return any(SERVER_ERROR_RE.search(c.get("humanExplanation") or "") for c in scan.get("checks", []))
+
+
+async def run_scan(url: str, refresh: bool = False) -> dict:
     headers = {"Content-Type": "application/json"}
     if AGENT_API_KEY:
         headers["X-Agent-Key"] = AGENT_API_KEY
+    payload = {"url": url, **({"refresh": True} if refresh else {})}
     try:
         async with httpx.AsyncClient(timeout=SCAN_TIMEOUT_S) as client:
-            res = await client.post(f"{API_URL}/api/scan", json={"url": url}, headers=headers)
+            res = await client.post(f"{API_URL}/api/scan", json=payload, headers=headers)
     except httpx.TimeoutException as err:
         raise ScanError("The scanner took too long to answer. Please try again in a minute.") from err
     except httpx.HTTPError as err:
@@ -189,8 +221,22 @@ async def reply_to(text: str, intent: Intent | None = None) -> tuple[str, str | 
     intent = intent or await understand(text)
     if intent.action != "scan" or not intent.url:
         return HELP_TEXT, None
+    awake = await wake_site(intent.url)
     try:
         scan = await run_scan(intent.url)
+        if had_server_error(scan):
+            # The site may still have been waking up: give it a moment and look again.
+            await asyncio.sleep(10)
+            await wake_site(intent.url, attempts=2)
+            scan = await run_scan(intent.url, refresh=True)
     except ScanError as err:
         return f"Sorry, I couldn't scan **{intent.url}**: {err}", None
-    return format_report(scan), scan.get("scanId")
+
+    report = format_report(scan)
+    if had_server_error(scan) or not awake:
+        report = (
+            f"⚠️ **{scan.get('domain', intent.url)} was returning server errors (HTTP 5xx) while I checked**, "
+            "so this grade mostly reflects the outage, not your website. This usually means the site was asleep "
+            "or overloaded. Please make sure it's up and ask me again.\n\n" + report
+        )
+    return report, scan.get("scanId")

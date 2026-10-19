@@ -12,6 +12,7 @@ Nothing here knows about any particular store. It only uses what the site publis
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -190,9 +191,19 @@ async def _sitemap_products(b: Browser) -> list[str]:
 
 
 async def step_reach(b: Browser, report: Report) -> sig.PageSignals | None:
+    # A sleeping free-tier site answers 502/503 for up to a minute. A person would
+    # wait and retry, so we do too, before judging anything (robots.txt included).
+    home = await b.get(b.start_url, check_robots=False)
+    for _ in range(4):
+        if home.status and home.status < 500:
+            break
+        await asyncio.sleep(8)
+        home = await b.get(b.start_url, check_robots=False)
     robots = await b.load_robots()
     report.blocked_agents = robots.blocked_agents
-    home = await b.get(b.start_url)
+    if robots.found and not robots.allows(b.start_url):
+        report.steps.append(Step("Reach the site", False, "robots.txt tells automated agents not to visit this site at all.", b.log[-2:]))
+        return None
     if not home.ok:
         report.steps.append(Step("Reach the site", False, f"The site did not load for an agent (HTTP {home.status or 'no response'}).", b.log[-2:]))
         return None
