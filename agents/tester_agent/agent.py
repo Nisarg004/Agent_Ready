@@ -35,6 +35,8 @@ from uagents_core.contrib.protocols.chat import (  # noqa: E402
 from tester_agent.shopper import format_report, run  # noqa: E402
 
 TESTS_PER_HOUR = int(os.getenv("TESTER_RUNS_PER_USER_PER_HOUR", "6"))
+# Our own AgentReady agent applies its own per-user limit, so it isn't limited here.
+TRUSTED = {a.strip() for a in os.getenv("TESTER_TRUSTED_AGENTS", "").split(",") if a.strip()}
 _recent: dict[str, deque[float]] = defaultdict(deque)
 
 URL_RE = re.compile(r"(https?://[^\s<>\"']+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>\"']*)?)", re.I)
@@ -49,6 +51,8 @@ HELP = (
 
 
 def _allow(sender: str) -> bool:
+    if sender in TRUSTED:
+        return True
     now, q = time.time(), _recent[sender]
     while q and now - q[0] > 3600:
         q.popleft()

@@ -52,6 +52,7 @@ HELP_TEXT = (
 class Intent:
     action: str  # "scan" | "help"
     url: str | None = None
+    shopping: str | None = None  # what to try buying, e.g. "earbuds under ₹10,000"
 
 
 def _regex_url(text: str) -> str | None:
@@ -71,12 +72,14 @@ async def understand(text: str) -> Intent:
                     {
                         "role": "system",
                         "content": (
-                            "You route messages for AgentReady, an agent that scans websites "
-                            "for AI-agent readiness. Reply with JSON only: "
-                            '{"action": "scan" | "help", "url": string | null}. '
-                            'Use "scan" when the user wants a website checked, scanned, audited '
-                            "or asks if a site is ready for AI or AI shoppers; put the website "
-                            'address in "url" exactly as written. Otherwise use "help".'
+                            "You route messages for AgentReady, an agent that checks whether AI shopping agents can use a website. "
+                            "Reply with JSON only: "
+                            '{"action": "scan" | "help", "url": string | null, "shopping": string | null}. '
+                            'Use "scan" when the user wants a website checked, scanned, audited, tested, or asks if a site '
+                            'is ready for AI or AI shoppers; put the website address in "url" exactly as written. '
+                            'If they mention something to buy or test buying (a product, category or budget), put a short '
+                            'shopping request in "shopping", e.g. "wireless earbuds under ₹10,000"; otherwise null. '
+                            'Otherwise use "help".'
                         ),
                     },
                     {"role": "user", "content": text},
@@ -88,12 +91,11 @@ async def understand(text: str) -> Intent:
             raw = raw[raw.find("{") : raw.rfind("}") + 1]
             data = json.loads(raw)
             url = data.get("url") or _regex_url(text)
-            if data.get("action") == "scan" and url:
-                return Intent("scan", url)
+            shopping = (data.get("shopping") or "").strip() or None
             if url:
-                # The model said "help" but there is clearly a site in the
-                # message; scanning it is the more useful answer.
-                return Intent("scan", url)
+                # Even if the model said "help", a site in the message means
+                # checking it is the more useful answer.
+                return Intent("scan", url, shopping)
             return Intent("help")
         except Exception as err:  # model down, bad JSON: fall through to regex
             log.warning("ASI:One intent call failed, using regex: %s", err)

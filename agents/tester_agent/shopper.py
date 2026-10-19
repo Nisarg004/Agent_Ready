@@ -29,7 +29,7 @@ MAX_LISTING_PAGES = 8
 
 STOPWORDS = set(("a an the for me find buy get some any under below less than and or with of in to on my i want need please cheap cheapest best good "
                  "add cart bag basket checkout link compare top two one cheaper then give send order purchase shop from at it them pick choose "
-                 "can you agent site store website try").split())
+                 "can you agent site store website try any product products item items thing something").split())
 
 
 # Everyday shopping vocabulary, so "earbuds" also finds "AirPods" and "TWS buds".
@@ -106,6 +106,8 @@ class Product:
         return sum(1 for k in task.keywords if any(t in self.name.lower() for t in _terms(k)))
 
     def matches(self, task: Task) -> bool:
+        if not task.keywords:  # "any product": everything readable counts
+            return True
         hay = f"{self.name} {self.url} {self.text[:2000]}".lower()
         found = sum(1 for k in task.keywords if any(t in hay for t in _terms(k)))
         need = len(task.keywords) if len(task.keywords) <= 2 else len(task.keywords) - 1
@@ -284,7 +286,8 @@ async def step_find(b: Browser, report: Report, home: sig.PageSignals | None, ta
         report.steps.append(Step("Find products", False, f"Could not find any products: {why}.", ev))
         return []
     if not matches:
-        report.steps.append(Step("Find products", False, f"Read {len(products)} products, but none matched “{task.text}”.", ev))
+        what = f"matched “{task.text}”" if task.keywords else "had a readable price"
+        report.steps.append(Step("Find products", False, f"Read {len(products)} products, but none {what}.", ev))
         return []
     report.steps.append(Step("Find products", True, f"Found {len(matches)} products matching the task.", ev))
     return matches
