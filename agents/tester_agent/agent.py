@@ -79,6 +79,9 @@ def reply(text: str) -> ChatMessage:
     return ChatMessage(content=[TextContent(type="text", text=text), EndSessionContent(type="end-session")])
 
 
+PROFILE_README = "tester.md"
+PROFILE_DESCRIPTION = "Tries to shop on any website the way an AI agent would and reports where it gets stuck: finding, comparing, cart or checkout."
+
 chat = Protocol(spec=chat_protocol_spec)
 
 
@@ -118,10 +121,13 @@ def create_agent(mailbox: bool | None = None, port: int | None = None) -> Agent:
     port = port or int(os.getenv("TESTER_PORT", "8002"))
     kwargs = dict(name="AgentReady Tester", seed=seed, port=port)
     if mailbox:
-        kwargs.update(mailbox=True, publish_agent_details=True)
+        kwargs.update(mailbox=True, publish_agent_details=True, description=PROFILE_DESCRIPTION)
     else:
         kwargs.update(endpoint=[f"http://127.0.0.1:{port}/submit"])
     agent = Agent(**kwargs)
+    # Agentverse profile README. Read as UTF-8 here: uAgents' own readme_path
+    # uses the platform default encoding, which breaks on ₹ and emoji on Windows.
+    agent._readme = (Path(__file__).resolve().parents[1] / "profiles" / PROFILE_README).read_text(encoding="utf-8")
     agent.include(chat, publish_manifest=mailbox)
     return agent
 

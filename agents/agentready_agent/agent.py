@@ -58,6 +58,9 @@ def text_message(text: str, end_session: bool = True) -> ChatMessage:
     return ChatMessage(content=content)
 
 
+PROFILE_README = "agentready.md"
+PROFILE_DESCRIPTION = "Checks whether AI shopping agents can find, read and buy from your online store, runs a live shopping test, and shows what to fix."
+
 chat = Protocol(spec=chat_protocol_spec)
 
 
@@ -149,12 +152,15 @@ def create_agent(mailbox: bool | None = None, port: int | None = None) -> Agent:
 
     kwargs = dict(name="AgentReady", seed=seed, port=port)
     if mailbox:
-        kwargs.update(mailbox=True, publish_agent_details=True)
+        kwargs.update(mailbox=True, publish_agent_details=True, description=PROFILE_DESCRIPTION)
     else:
         kwargs.update(endpoint=[f"http://127.0.0.1:{port}/submit"])
 
     agent = Agent(**kwargs)
     # publish_manifest lets Agentverse and ASI:One see that we speak the chat protocol.
+    # Agentverse profile README. Read as UTF-8 here: uAgents' own readme_path
+    # uses the platform default encoding, which breaks on ₹ and emoji on Windows.
+    agent._readme = (Path(__file__).resolve().parents[1] / "profiles" / PROFILE_README).read_text(encoding="utf-8")
     agent.include(chat, publish_manifest=mailbox)
     return agent
 
