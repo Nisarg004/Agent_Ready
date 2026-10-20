@@ -18,7 +18,7 @@ import os
 import re
 import time
 from dataclasses import asdict, dataclass, field
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
 from . import signals as sig
 from .web import Browser, fresh_get
@@ -348,29 +348,50 @@ async def step_cart(b: Browser, report: Report, chosen: Product | None) -> str |
     # one-time security token tied to the current session.
     fresh = await b.get(chosen.url)
     s = sig.read(fresh.text if fresh.ok else chosen.page_html)
-    forms = [f for f in s.forms if f.method == "post" and (CART_WORDS.search(f.action) or ADD_WORDS.search(f.submit_text))]
-    if not forms:
+    forms = [f for f in s.forms if f.method in ("post", "get") and (CART_WORDS.search(f.action) or ADD_WORDS.search(f.submit_text))]
+    forms.sort(key=lambda f: f.method != "post")
+    # A plain "Add to cart" / "Buy now" link works too: agents follow links.
+    add_links = [b.abs(h, chosen.url) for h, t in s.links if t and ADD_WORDS.search(t) and not h.startswith(("#", "javascript:"))]
+    add_links = [u for u in add_links if b.same_site(u)]
+    if not forms and not add_links:
         report.steps.append(Step("Add to cart", False,
                                  "There is no add-to-cart an agent can use. The button only works through the page's JavaScript, and the site publishes no cart API.",
                                  ev))
         return None
 
-    form = forms[0]
-    action = b.abs(form.action, chosen.url) if form.action and not form.action.startswith("javascript:") else chosen.url
+    if forms:
+        form = forms[0]
+        action = b.abs(form.action, chosen.url) if form.action and not form.action.startswith("javascript:") else chosen.url
+    else:
+        form, action = None, add_links[0]
     if b.robots and not b.robots.allows(action):
         report.steps.append(Step("Add to cart", False, f"robots.txt tells automated agents not to use {urlparse(action).path}, so a well-behaved agent stops here.", ev))
         return None
-    res = await b.post_form(action, form.fields, multipart=form.multipart, referer=chosen.url)
-    ev.append(f"Submitted the page's own form: POST {urlparse(action).path or '/'} → HTTP {res.status}")
+    if form and form.method == "post":
+        res = await b.post_form(action, form.fields, multipart=form.multipart, referer=chosen.url)
+        ev.append(f"Submitted the page's own form: POST {urlparse(action).path or '/'} → HTTP {res.status}")
+    elif form:
+        query = "&".join(f"{quote_plus(k)}={quote_plus(v)}" for k, v in form.fields)
+        res = await b.get(action + ("&" if "?" in action else "?") + query if query else action)
+        ev.append(f"Submitted the page's own form: GET {urlparse(action).path or '/'} → HTTP {res.status}")
+    else:
+        res = await b.get(action)
+        ev.append(f"Followed the page's add-to-cart link: {urlparse(action).path or '/'} → HTTP {res.status}")
     if not res.ok:
         report.steps.append(Step("Add to cart", False, f"The add-to-cart form was rejected (HTTP {res.status}).", ev))
         return None
 
-    cart_url = _find_cart_link(b, res.url, sig.read(res.text)) or _find_cart_link(b, chosen.url, s) or b.origin + "/cart"
+    how = "the site's own form" if form else "the site's add-to-cart link"
+    after = sig.read(res.text)
+    if CART_WORDS.search(after.h1 or after.title) and _short(chosen.name) in after.text.lower():
+        ev.append(f"The page it landed on, {urlparse(res.url).path}, is a cart showing the product")
+        report.steps.append(Step("Add to cart", True, f"Added {chosen.name} to the cart using {how}.", ev))
+        return res.url
+    cart_url = _find_cart_link(b, res.url, after) or _find_cart_link(b, chosen.url, s) or b.origin + "/cart"
     cart = await b.get(cart_url)
     if cart.ok and _short(chosen.name) in sig.read(cart.text).text.lower():
         ev.append(f"Cart page {urlparse(cart.url).path} shows the product")
-        report.steps.append(Step("Add to cart", True, f"Added {chosen.name} to the cart using the site's own form.", ev))
+        report.steps.append(Step("Add to cart", True, f"Added {chosen.name} to the cart using {how}.", ev))
         return cart.url
     report.steps.append(Step("Add to cart", False, "The form was submitted, but the product never appeared in a cart the agent could read.", ev))
     return None

@@ -10,8 +10,25 @@ Agent Chat Protocol, so they can be used from ASI:One.
 |---|---|---|
 | **AgentReady** | Scans a website and explains how well AI shopping agents can find, read and buy from it | `agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v` (local dev seed) |
 | **AgentReady Tester** | Actually tries to shop on a website like an AI agent (find, compare, add to cart, get a checkout link) and reports each step | `agent1qvxkjpe6z7gnheuzqhf6hp6cuwld7serzjuhktyvdph9cgn3vgf6zw3zv2e` (local dev seed) |
+| **AgentReady Fixer** | Changes the store's code on GitHub so agents can buy, proves it with a before/after Tester run, and opens a pull request | see `python fixer_agent/agent.py` output |
 
-Coming next: the Fixer (agent-access settings and auto-fix Pull Requests), which asks the Tester to prove each fix works.
+## How the Fixer works
+
+In ASI:One: `Fix voltkart.onrender.com, code at github.com/you/your-store` → a fix plan → `apply all` (or `apply 1,3`) → a pull request → after merging, `retest`.
+
+1. **Diagnose.** Clones the repo, detects the stack (Next.js, Vite SPA, Node/Express, Flask, Django, plain HTML) and runs the Tester on the live site.
+2. **Plan.** Maps failed steps to generic fixes (`fixer_agent/playbook.py`): robots.txt access for AI agents, products readable without JavaScript, JSON-LD + sitemap + llms.txt, plain-HTML add to cart, and a checkout link that carries the cart. Nothing is store-specific.
+3. **Fix.** ASI:One (`asi1`, tool calling) edits the repo through a few safe tools: list, read, search, write, replace, build, test. It cannot run commands, edit secrets, lockfiles or git, or touch anything outside the repo.
+4. **Prove.** The original and the patched store are installed, built and run locally, and the Tester shops on both. Failing steps are fed back for up to three rounds.
+5. **Pull request** with the before/after table. Nothing is merged or deployed.
+
+It only works on repos listed in `FIXER_ALLOWED_REPOS`, whoever asks. Running a repo's install and build executes its code, so in production this should run in a sandbox.
+
+```bash
+python tools/run_fixer.py voltkart.onrender.com github.com/you/voltkart-store "wireless earbuds under ₹10,000"                 # plan only
+python tools/run_fixer.py voltkart.onrender.com github.com/you/voltkart-store "wireless earbuds under ₹10,000" --apply all --dry # fix + test, no PR
+python tools/local_fixer_chat.py "Fix github.com/you/voltkart-store for earbuds" "apply all"                                     # chat locally
+```
 
 ## How the Tester works
 
@@ -84,5 +101,11 @@ python agentready_agent/agent.py
 | `tester_agent/signals.py` | Reads text, structured data, links, prices and forms from a page |
 | `tools/run_tester.py` | Run the Tester from the command line |
 | `tools/local_chat_test.py` | Local end-to-end chat test (`--tester` for the Tester) |
+| `fixer_agent/agent.py` | Fixer uAgent + chat protocol: plan, apply, retest |
+| `fixer_agent/playbook.py` | Generic fixes and how they map to failed Tester steps |
+| `fixer_agent/coder.py` | ASI:One tool-calling loop that edits the repo |
+| `fixer_agent/workspace.py` | Detects the stack; installs, builds and runs a store locally |
+| `fixer_agent/github.py` | Clone, branch, push and pull request |
+| `tools/run_fixer.py`, `tools/local_fixer_chat.py` | Run the Fixer from the command line / chat with it locally |
 
 The agent sends `AGENT_API_KEY` to the AgentReady API so all its users don't share one IP's public scan limit. Set the same value as `AGENT_API_KEY` on the API.

@@ -1,0 +1,174 @@
+{
+ "before": {
+  "site": "http://127.0.0.1:60243",
+  "task": "wireless earbuds under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": true,
+    "detail": "The homepage loads and has readable content without JavaScript.",
+    "evidence": [
+     "Homepage: 358 words of readable text without JavaScript",
+     "robots.txt: found",
+     "robots.txt blocks: GPTBot, ClaudeBot, CCBot"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": true,
+    "detail": "Found 2 products matching the task.",
+    "evidence": [
+     "llms.txt: not found",
+     "sitemap.xml product URLs: 0",
+     "Listing pages read: 8 · product links found: 21",
+     "Products read: 21 (0 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": true,
+    "detail": "Compared Volt Essentials Buds Air TWS Earbuds (₹1,299) with Google Pixel Buds A-Series (₹6,999); both fit equally, so it chose the cheaper one.",
+    "evidence": [
+     "Data from page text",
+     "Data from page text"
+    ]
+   },
+   {
+    "name": "Add to cart",
+    "passed": false,
+    "detail": "robots.txt tells automated agents not to use /cart/add, so a well-behaved agent stops here.",
+    "evidence": [
+     "Standard agent commerce manifest (/.well-known/ucp): not found"
+    ]
+   },
+   {
+    "name": "Checkout link",
+    "passed": false,
+    "detail": "Skipped: there is no cart to check out.",
+    "evidence": []
+   }
+  ],
+  "chosen": {
+   "name": "Volt Essentials Buds Air TWS Earbuds",
+   "price": 1299.0,
+   "url": "http://127.0.0.1:60243/p/volt-buds-air"
+  },
+  "compared": [
+   {
+    "name": "Volt Essentials Buds Air TWS Earbuds",
+    "price": 1299.0,
+    "url": "http://127.0.0.1:60243/p/volt-buds-air",
+    "source": "page text"
+   },
+   {
+    "name": "Google Pixel Buds A-Series",
+    "price": 6999.0,
+    "url": "http://127.0.0.1:60243/p/google-pixel-buds-a-series",
+    "source": "page text"
+   }
+  ],
+  "checkout_url": null,
+  "blocked_agents": [
+   "GPTBot",
+   "ClaudeBot",
+   "CCBot"
+  ],
+  "seconds": 4.9,
+  "passed": 3,
+  "total": 5
+ },
+ "after": {
+  "site": "http://127.0.0.1:62866",
+  "task": "wireless earbuds under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": true,
+    "detail": "The homepage loads and has readable content without JavaScript.",
+    "evidence": [
+     "Homepage: 358 words of readable text without JavaScript",
+     "robots.txt: found",
+     "robots.txt blocks: CCBot"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": true,
+    "detail": "Found 2 products matching the task.",
+    "evidence": [
+     "llms.txt: found",
+     "sitemap.xml product URLs: 21",
+     "Listing pages read: 8 · product links found: 21",
+     "Products read: 21 (21 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": true,
+    "detail": "Compared Volt Essentials Buds Air TWS Earbuds (₹1,299) with Google Pixel Buds A-Series (₹6,999); both fit equally, so it chose the cheaper one.",
+    "evidence": [
+     "Data from structured data",
+     "Data from structured data"
+    ]
+   },
+   {
+    "name": "Add to cart",
+    "passed": true,
+    "detail": "Added Volt Essentials Buds Air TWS Earbuds to the cart using the site's own form.",
+    "evidence": [
+     "Standard agent commerce manifest (/.well-known/ucp): not found",
+     "Submitted the page's own form: POST /cart/add → HTTP 200",
+     "The page it landed on, /cart, is a cart showing the product"
+    ]
+   },
+   {
+    "name": "Checkout link",
+    "passed": true,
+    "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+    "evidence": [
+     "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+    ]
+   }
+  ],
+  "chosen": {
+   "name": "Volt Essentials Buds Air TWS Earbuds",
+   "price": 1299.0,
+   "url": "http://127.0.0.1:62866/p/volt-buds-air"
+  },
+  "compared": [
+   {
+    "name": "Volt Essentials Buds Air TWS Earbuds",
+    "price": 1299.0,
+    "url": "http://127.0.0.1:62866/p/volt-buds-air",
+    "source": "structured data"
+   },
+   {
+    "name": "Google Pixel Buds A-Series",
+    "price": 6999.0,
+    "url": "http://127.0.0.1:62866/p/google-pixel-buds-a-series",
+    "source": "structured data"
+   }
+  ],
+  "checkout_url": "http://127.0.0.1:62866/checkout?items=VK-AUD-006%3A1",
+  "blocked_agents": [
+   "CCBot"
+  ],
+  "seconds": 7.5,
+  "passed": 5,
+  "total": 5
+ },
+ "files": [
+  "public/robots.txt",
+  "src/helpers.js",
+  "src/routes/cart.js",
+  "src/routes/shop.js",
+  "views/cart.ejs",
+  "views/checkout.ejs",
+  "views/product.ejs",
+  "views/llms.ejs",
+  "views/sitemap.ejs"
+ ],
+ "summary": "All three fixes are in, and the AI shopping Tester now passes 5/5 steps (was 3/5).\n\n**1. Let AI shopping agents in (robots.txt)**\n- Removed the `Disallow: /` blocks for GPTBot and ClaudeBot so shopping agents can reach the store; kept CCBot and Bytespider blocked as training/scraping crawlers.\n- Stopped disallowing `/cart` and `/checkout` (paths an agent needs to shop) and added `/order` to the private-pages list alongside `/account`, `/login`, `/signup`.\n- Added `Sitemap: /sitemap.xml`.\n\n**2. Publish product data for agents**\n- Product pages now include a `<script type=\"application/ld+json\">` Product object (name, description, image, sku, brand, url, and an Offer with price, priceCurrency, availability InStock/OutOfStock from live stock).\n- New `/sitemap.xml` route lists the homepage, all six category pages and all 21 product pages.\n- New `/llms.txt` in Markdown: store name, one-line summary, a \"## Products\" list of in-stock items with prices, and a \"## How to buy\" section explaining the add-to-cart form, the CSRF token, and the shareable checkout link.\n- All three are rendered from the live catalogue (`src/catalog.js`) — no hard-coded copies — and build absolute URLs from the request's protocol and Host (no domain hard-coded), so they work on any host.\n\n**3. Shareable checkout link (check-first: the store did not have this)**\n- The cart page's \"Proceed to checkout\" link now carries the cart: `/checkout?items=<sku>:<qty>,…` (ids and quantities only, never prices).\n- The checkout route accepts `?items=`, looks each id up in the catalogue (SKUs or slugs), ignores unknown ids and out-of-stock items, clamps quantities to stock and the existing max of 5, and puts the result in the visitor's session — so the same items open on any device with no cookies. Without the parameter, checkout works exactly as before.\n- Guests hitting `/checkout` now see the order summary with product names and totals in the HTML, plus a sign-in / create-account step that returns to checkout (the cart is preserved through login, as it already was) — instead of being bounced straight to the login page. The address/payment form and \"Place order\" button only appear once signed in.\n\nSecurity, prices, products and design are untouched: CSRF is still required on every POST, login is still required to place an order, and no validation was weakened. No new dependencies. Nothing failed due to the local http-only test setup.",
+ "pr": null,
+ "diff": "diff --git a/public/robots.txt b/public/robots.txt\nindex 37b1943..bd42e3d 100644\n--- a/public/robots.txt\n+++ b/public/robots.txt\n@@ -1,22 +1,19 @@\n # VoltKart robots.txt\n \n # AI training and scraping bots (blocked after repeated price scraping, Jan 2025)\n-User-agent: GPTBot\n-Disallow: /\n-\n User-agent: CCBot\n Disallow: /\n \n-User-agent: ClaudeBot\n-Disallow: /\n-\n User-agent: Bytespider\n Disallow: /\n \n+# AI shopping agents are welcome: product, listing and search pages, the\n+# add-to-cart endpoint, the cart and the checkout page stay open.\n User-agent: *\n-Disallow: /cart\n-Disallow: /checkout\n Disallow: /account\n+Disallow: /order\n Disallow: /login\n Disallow: /signup\n Allow: /\n+\n+Sitemap: /sitemap.xml\ndiff --git a/src/helpers.js b/src/helpers.js\nindex 9ec4bae..ca42048 100644\n--- a/src/helpers.js\n+++ b/src/helpers.js\n@@ -16,6 +16,12 @@ const bySlug = Object.fromEntries(products.map((p) => [p.slug, p]));\n const inr = (n) => '₹' + Number(n).toLocaleString('en-IN');\n const discountPct = (p) => Math.round((1 - p.price / p.mrp) * 100);\n \n+// Absolute URL for the current request, built from the Host header. Used for\n+// sitemap.xml, llms.txt and JSON-LD, so no domain is hard-coded.\n+function absoluteUrl(req, path = '/') {\n+  return `${req.protocol}://${req.get('host') || 'localhost'}${path}`;\n+}\n+\n function cartSummary(session, { isFirstOrder = false } = {}) {\n   const lines = (session.cart || [])\n     .map((l) => ({ ...l, product: bySku[l.sku] }))\n@@ -63,4 +69,4 @@ function requireLogin(req, res, next) {\n \n const safeNext = (n) => (typeof n === 'string' && n.startsWith('/') && !n.startsWith('//') ? n : '/');\n \n-module.exports = { COUPONS, COD_LIMIT, FREE_SHIPPING_FROM, bySku, bySlug, inr, discountPct, cartSummary, csrf, requireLogin, safeNext };\n+module.exports = { COUPONS, COD_LIMIT, FREE_SHIPPING_FROM, bySku, bySlug, inr, discountPct, cartSummary, csrf, requireLogin, safeNext, absoluteUrl };\ndiff --git a/src/routes/cart.js b/src/routes/cart.js\nindex 364a446..bfe6f15 100644\n--- a/src/routes/cart.js\n+++ b/src/routes/cart.js\n@@ -6,6 +6,10 @@ const router = express.Router();\n \n const isFirstOrder = (userId) => !userId || !db.prepare('SELECT 1 FROM orders WHERE user_id = ?').get(userId);\n \n+// Shareable cart for the checkout link: /checkout?items=<sku>:<qty>,<sku>:<qty>.\n+// Carries ids and quantities only, never prices, so it works on any device without cookies.\n+const itemsParam = (cart) => cart.lines.map((l) => `${l.sku}:${l.qty}`).join(',');\n+\n router.post('/cart/add', (req, res) => {\n   const p = bySku[req.body.sku];\n   if (!p) return res.redirect('/');\n@@ -30,7 +34,8 @@ router.post('/cart/add', (req, res) => {\n });\n \n router.get('/cart', (req, res) => {\n-  res.render('cart', { title: 'Cart | VoltKart', cart: cartSummary(req.session, { isFirstOrder: isFirstOrder(req.session.userId) }), COUPONS });\n+  const cart = cartSummary(req.session, { isFirstOrder: isFirstOrder(req.session.userId) });\n+  res.render('cart', { title: 'Cart | VoltKart', cart, COUPONS, checkoutUrl: cart.count ? `/checkout?items=${encodeURIComponent(itemsParam(cart))}` : '/checkout' });\n });\n \n router.post('/cart/update', (req, res) => {\n@@ -49,9 +54,34 @@ router.post('/cart/coupon', (req, res) => {\n   res.redirect('/cart');\n });\n \n-router.get('/checkout', requireLogin, (req, res) => {\n+// Rebuild a cart from a shareable ?items= link: look up each product, ignore\n+// unknown ids and clamp quantities to stock (max 5 per line, like the cart forms).\n+function cartFromItemsParam(raw) {\n+  const cart = [];\n+  for (const part of String(raw).split(',')) {\n+    const m = /^([A-Za-z0-9-]+):(\\d{1,2})$/.exec(part.trim());\n+    if (!m) continue;\n+    const p = bySku[m[1].toUpperCase()] || bySlug[m[1].toLowerCase()];\n+    if (!p || p.stock === 0) continue;\n+    const qty = Math.max(1, Math.min(5, p.stock, parseInt(m[2], 10)));\n+    const line = cart.find((l) => l.sku === p.sku);\n+    if (line) line.qty = Math.min(5, p.stock, line.qty + qty);\n+    else cart.push({ sku: p.sku, option: '', qty });\n+  }\n+  return cart;\n+}\n+\n+router.get('/checkout', (req, res) => {\n+  if (typeof req.query.items === 'string' && req.query.items) {\n+    const rebuilt = cartFromItemsParam(req.query.items);\n+    if (rebuilt.length) req.session.cart = rebuilt;\n+  }\n   const cart = cartSummary(req.session, { isFirstOrder: isFirstOrder(req.session.userId) });\n   if (!cart.count) return res.redirect('/cart');\n+  if (!req.session.userId) {\n+    // Show the order summary first; the sign-in step keeps the items after login.\n+    return res.render('checkout', { title: 'Checkout | VoltKart', cart, form: {}, errors: {}, payment: 'upi', COD_LIMIT, user: null });\n+  }\n   const saved = db.prepare('SELECT * FROM addresses WHERE user_id = ? ORDER BY id DESC').get(req.session.userId) || {};\n   res.render('checkout', { title: 'Checkout | VoltKart', cart, form: saved, errors: {}, payment: 'upi', COD_LIMIT });\n });\ndiff --git a/src/routes/shop.js b/src/routes/shop.js\nindex 67a8c55..0e57793 100644\n--- a/src/routes/shop.js\n+++ b/src/routes/shop.js\n@@ -1,7 +1,7 @@\n const express = require('express');\n const db = require('../db');\n const { categories, products } = require('../catalog');\n-const { bySlug } = require('../helpers');\n+const { bySlug, inr, absoluteUrl } = require('../helpers');\n \n const router = express.Router();\n \n@@ -68,9 +68,22 @@ router.get('/p/:slug', (req, res, next) => {\n   const cat = categories.find((c) => c.slug === p.category);\n   const related = products.filter((x) => x.category === p.category && x.sku !== p.sku).slice(0, 4);\n   const wished = req.session.userId ? !!db.prepare('SELECT 1 FROM wishlist WHERE user_id = ? AND sku = ?').get(req.session.userId, p.sku) : false;\n-  res.render('product', { title: `${p.name} | VoltKart`, p, cat, related, wished });\n+  res.render('product', { title: `${p.name} | VoltKart`, p, cat, related, wished, canonical: absoluteUrl(req, `/p/${p.slug}`) });\n });\n \n router.get('/help', (req, res) => res.render('help', { title: 'Help & policies | VoltKart' }));\n \n+// Machine-readable catalogue for AI shopping agents, built from the live catalogue.\n+router.get('/sitemap.xml', (req, res) => {\n+  res.type('application/xml');\n+  res.render('sitemap', { urls: ['/', ...categories.map((c) => `/c/${c.slug}`), ...products.map((p) => `/p/${p.slug}`)].map((u) => absoluteUrl(req, u)) });\n+});\n+\n+router.get('/llms.txt', (req, res) => {\n+  res.type('text/plain; charset=utf-8');\n+  res.render('llms', {\n+    products: products.filter((p) => p.stock > 0).map((p) => ({ name: p.name, url: absoluteUrl(req, `/p/${p.slug}`), price: inr(p.price) })),\n+  });\n+});\n+\n module.exports = router;\ndiff --git a/views/cart.ejs b/views/cart.ejs\nindex 3d6ecad..9f712af 100644\n--- a/views/cart.ejs\n+++ b/views/cart.ejs\n@@ -47,7 +47,7 @@\n         <div><dt>Delivery</dt><dd><%= cart.shipping ? inr(cart.shipping) : 'Free' %></dd></div>\n         <div class=\"grand\"><dt>Total</dt><dd><%= inr(cart.total) %></dd></div>\n       </dl>\n-      <a href=\"/checkout\" class=\"btn wide\">Proceed to checkout</a>\n+      <a href=\"<%= checkoutUrl %>\" class=\"btn wide\">Proceed to checkout</a>\n       <% if (!user) { %><p class=\"muted small center\">You'll need to log in or create an account to check out.</p><% } %>\n     </aside>\n   </div>\ndiff --git a/views/checkout.ejs b/views/checkout.ejs\nindex 6f86596..56a1e74 100644\n--- a/views/checkout.ejs\n+++ b/views/checkout.ejs\n@@ -4,6 +4,14 @@\n   <div class=\"cart-grid\">\n     <form method=\"post\" action=\"/checkout\" class=\"co-form\" novalidate>\n       <input type=\"hidden\" name=\"_csrf\" value=\"<%= csrf %>\">\n+      <% if (!user) { %>\n+      <div class=\"co-step\">\n+        <h3><span>1</span> Sign in to place your order</h3>\n+        <p class=\"muted small\">Your items are saved. Log in or create an account to continue — the cart stays as it is.</p>\n+        <p><a class=\"btn wide\" href=\"/login?next=<%= encodeURIComponent('/checkout') %>\">Log in</a></p>\n+        <p><a class=\"btn alt wide\" href=\"/signup?next=<%= encodeURIComponent('/checkout') %>\">Create an account</a></p>\n+      </div>\n+      <% } else { %>\n       <div class=\"co-step\">\n         <h3><span>1</span> Delivering to <%= user.name %></h3>\n         <label>Flat, house no., building, street, area\n@@ -24,6 +32,7 @@\n       <% if (errors.stock) { %><p class=\"flash error\"><%= errors.stock %></p><% } %>\n       <button class=\"btn wide\">Place order · <%= inr(cart.total) %></button>\n       <p class=\"muted small center\">Demo store: no payment is taken and nothing is shipped.</p>\n+      <% } %>\n     </form>\n     <aside class=\"cart-sum\">\n       <h3>Order summary</h3>\ndiff --git a/views/llms.ejs b/views/llms.ejs\nnew file mode 100644\nindex 0000000..76df736\n--- /dev/null\n+++ b/views/llms.ejs\n@@ -0,0 +1,15 @@\n+# VoltKart\n+\n+Online store for tech accessories in India: earbuds, headphones, speakers, smartwatches, chargers, keyboards, mice and gaming gear, with brand warranty and free delivery above ₹499.\n+\n+## Products\n+\n+<% products.forEach(function (p) { %>- [<%= p.name %>](<%= p.url %>): <%= p.price %>\n+<% }) %>\n+## How to buy\n+\n+1. Open a product page and POST its form to `/cart/add` with the fields `sku`, `qty` and the CSRF token `_csrf` from the page's hidden input (like a browser would). The product page HTML contains this form.\n+2. GET `/cart` to see the cart, or POST `/cart/update` to change quantities.\n+3. GET `/checkout` for the order summary. Checkout needs an account: the page shows the order summary first, then a log-in or sign-up step that keeps the items.\n+4. The cart page's \"Proceed to checkout\" link carries the cart as `/checkout?items=<sku>:<qty>,<sku>:<qty>`, so the same items open on any device without cookies.\n+5. Demo store: no real payment is taken and nothing is shipped.\ndiff --git a/views/product.ejs b/views/product.ejs\nindex e4e28e1..c23ff71 100644\n--- a/views/product.ejs\n+++ b/views/product.ejs\n@@ -1,4 +1,24 @@\n <%- include('partials/header') %>\n+<script type=\"application/ld+json\">\n+{\n+  \"@context\": \"https://schema.org\",\n+  \"@type\": \"Product\",\n+  \"name\": <%- JSON.stringify(p.name) %>,\n+  \"description\": <%- JSON.stringify(p.highlights.join('. ') + '. ' + p.warranty + '.') %>,\n+  \"image\": \"<%= p.image %>?w=1200&q=80&auto=format&fit=crop\",\n+  \"sku\": \"<%= p.sku %>\",\n+  \"brand\": { \"@type\": \"Brand\", \"name\": <%- JSON.stringify(p.brand) %> },\n+  \"url\": \"<%= canonical %>\",\n+  \"offers\": {\n+    \"@type\": \"Offer\",\n+    \"url\": \"<%= canonical %>\",\n+    \"priceCurrency\": \"INR\",\n+    \"price\": \"<%= p.price %>\",\n+    \"availability\": \"https://schema.org/<%= p.stock > 0 ? 'InStock' : 'OutOfStock' %>\",\n+    \"itemCondition\": \"https://schema.org/NewCondition\"\n+  }\n+}\n+</script>\n <section class=\"wrap\">\n   <p class=\"crumbs\"><a href=\"/\">Home</a> › <a href=\"/c/<%= cat.slug %>\"><%= cat.name %></a> › <%= p.brand %></p>\n   <div class=\"pdp\">\ndiff --git a/views/sitemap.ejs b/views/sitemap.ejs\nnew file mode 100644\nindex 0000000..e5e6b68\n--- /dev/null\n+++ b/views/sitemap.ejs\n@@ -0,0 +1,6 @@\n+<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n+<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n+  <% urls.forEach(function (u) { %>\n+  <url><loc><%= u %></loc></url>\n+  <% }) %>\n+</urlset>\n"
+}

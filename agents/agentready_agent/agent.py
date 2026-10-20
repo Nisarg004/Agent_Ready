@@ -127,13 +127,20 @@ async def ask_tester(ctx: Context, url: str, shopping: str | None) -> str | None
     return " ".join(i.text for i in reply.content if isinstance(i, TextContent)).strip() or None
 
 
+FIXER_HINT = (
+    "\n\n---\n\n**Want it fixed?** The **AgentReady Fixer** agent can change your store's code for you and prove it "
+    "with the same shopping test. Send it your site and GitHub repo, e.g. `Fix mystore.com, code at github.com/you/your-store`."
+)
+
+
 def combine(scan_reply: str, tester_reply: str | None) -> str:
     if not tester_reply:
-        return scan_reply + "\n\n_The shopping test by the AgentReady Tester agent didn't finish in time, so only the scan is shown._"
+        return scan_reply + "\n\n_The shopping test by the AgentReady Tester agent didn't finish in time, so only the scan is shown._" + FIXER_HINT
+    hint = "" if "5 / 5 steps" in tester_reply else FIXER_HINT
     return (
         "# Part 1: AI readiness scan\n\n" + scan_reply
         + "\n\n---\n\n# Part 2: Can an AI agent actually buy here?\n"
-        + "_Our Tester agent just tried it, step by step:_\n\n" + tester_reply
+        + "_Our Tester agent just tried it, step by step:_\n\n" + tester_reply + hint
     )
 
 
