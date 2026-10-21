@@ -94,6 +94,7 @@ def _structured(stack: Stack) -> Fix:
         f"""Add machine-readable product data; {gen}.
 - Product pages: a <script type="application/ld+json"> Product object with name, description, image, sku, url
   and offers {{"@type":"Offer", price, priceCurrency, availability (https://schema.org/InStock or OutOfStock), url}}.
+  When serialising it into the page, escape "<" as \\u003c so text in product data can't close the script tag.
 - /sitemap.xml listing the homepage, listing pages and every product page URL.
 - /llms.txt in Markdown: '# <Store name>', a one-line summary, then a '## Products' list of
   '- [Product name](absolute or root-relative product URL): ₹price' lines, and a short '## How to buy' section that

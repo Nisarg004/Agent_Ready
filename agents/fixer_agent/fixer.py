@@ -149,9 +149,10 @@ async def _broken_assets(origin: str, report: Report) -> list[str]:
     return broken[:20]
 
 
-def _drop_unused_scripts(ws: Path) -> list[str]:
+def _drop_unused_scripts(ws: Path, ran: set[str] = frozenset()) -> list[str]:
     """Delete new scripts the model wrote for itself (debug helpers) that nothing in the repo uses."""
-    new = [f for f in github.untracked_files(ws) if f.startswith("scripts/") and Path(f).suffix in (".mjs", ".js", ".cjs", ".py")]
+    # A script the model ran is how its generated files get rebuilt: always kept.
+    new = [f for f in github.untracked_files(ws) if f.startswith("scripts/") and Path(f).suffix in (".mjs", ".js", ".cjs", ".py") and f not in ran]
     if not new:
         return []
     texts = []
@@ -239,7 +240,7 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
         if all(s.passed for s in after.steps if s.name in targets):
             break
 
-    dropped = _drop_unused_scripts(ws)
+    dropped = _drop_unused_scripts(ws, {l[4:] for l in session.log if l.startswith("ran ")})
     if dropped:
         await progress("Removed leftover helper scripts: " + ", ".join(dropped))
     files = github.changed_files(ws)
