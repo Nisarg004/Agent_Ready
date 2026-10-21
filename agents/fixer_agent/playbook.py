@@ -52,8 +52,9 @@ serves it, e.g. app/robots.ts in Next.js; create public/robots.txt if there is n
 def _readable(stack: Stack) -> Fix:
     if stack.kind in STATIC_HOSTED:
         how = """This site is hosted as static files (no server code runs per request), so generate real HTML at build time.
-- Write a small build script with no new dependencies (Node `scripts/*.mjs` for a Node project; for a plain
-  HTML site a Python or Node script, and commit the generated files too since there is no build step).
+- Write a small build script with no new dependencies under scripts/ (Node `scripts/*.mjs`; a Python script is
+  fine for a plain HTML site). For a plain HTML site with no build step, run it with run_script so the
+  generated pages are committed, and re-run it after each change to it. Never write generated pages by hand.
 - It reads the catalogue from the store's own data source (the JSON file or JS data file the app already uses;
   never copy the data by hand) and writes one HTML page per product at a clean, linkable URL such as
   /products/<slug>/index.html. Each page reuses the site's stylesheet and header/footer markup and shows the

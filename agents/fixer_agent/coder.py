@@ -11,17 +11,31 @@ import asyncio
 import json
 import os
 import re
+import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Awaitable, Callable
 
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, InternalServerError, RateLimitError
 
 from .playbook import Fix
-from .workspace import SKIP_DIRS, Stack, file_tree
+from .workspace import SKIP_DIRS, Stack, _exe, _run as run_cmd, file_tree
 
 MODEL = os.getenv("FIXER_MODEL", "asi1")
+# asi1 reasons at length by default (minutes per step on a big repo); "medium" keeps steps to seconds.
+REASONING = os.getenv("FIXER_REASONING", "medium")
 MAX_TOOL_CALLS = int(os.getenv("FIXER_MAX_TOOL_CALLS", "60"))
+TRACE = os.getenv("FIXER_TRACE", "false").lower() == "true"
+
+
+def _trace(line: str):
+    """With FIXER_TRACE=true, print every model and tool call, to see where the time goes."""
+    if TRACE:
+        print(time.strftime("%H:%M:%S"), line, file=sys.stderr, flush=True)
+
+
 PROTECTED = re.compile(r"(^|/)(\.git|node_modules|\.venv|\.env[^/]*|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)(/|$)", re.I)
 
 SYSTEM = """You are the AgentReady Fixer, a careful senior web developer. You change an online store's code so that AI
@@ -59,6 +73,9 @@ TOOLS = [
     {"name": "replace_in_file", "description": "Replace one exact, unique piece of text in a file.",
      "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old": {"type": "string"}, "new": {"type": "string"}}, "required": ["path", "old", "new"]}},
     {"name": "build", "description": "Build the store (or compile-check it) and return errors.", "parameters": {"type": "object", "properties": {}}},
+    {"name": "run_script", "description": "Run a generator script you wrote under scripts/ (.mjs/.js with Node, .py with Python) from the repo root, "
+                                          "e.g. to write static pages from the catalogue. Returns its output. Files it writes become part of the change.",
+     "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
     {"name": "test_store", "description": "Build, start the patched store locally and run the AI shopping Tester on it. Returns the step-by-step report.",
      "parameters": {"type": "object", "properties": {}}},
     {"name": "finish", "description": "Stop and summarise the changes for the pull request.",
@@ -138,6 +155,15 @@ class Session:
                 self.edits += 1
                 self.log.append(f"edited {args['path']}")
                 return "Replaced."
+            if name == "run_script":
+                rel = (args.get("path") or "").strip().lstrip("/").replace("\\", "/")
+                p = self._path(rel)
+                if not rel.startswith("scripts/") or p.suffix not in (".mjs", ".js", ".cjs", ".py") or not p.exists():
+                    return "Only an existing .mjs/.js/.cjs/.py file under scripts/ can be run."
+                code, out = await run_cmd([_exe("node") if p.suffix != ".py" else sys.executable, rel], self.ws, 120)
+                self.edits += 1
+                self.log.append(f"ran {rel}")
+                return f"Exit code {code}.\n{out[-4000:]}"
             if name == "build":
                 ok, out = await self.build()
                 return "Build passed." if ok else "Build FAILED:\n" + out
@@ -179,7 +205,7 @@ def _trim(messages: list[dict], budget: int = 180_000):
 
 async def work(session: Session, fixes: list[Fix], report_text: str, extra: str = "",
                client: AsyncOpenAI | None = None) -> Session:
-    client = client or AsyncOpenAI(base_url="https://api.asi1.ai/v1", api_key=os.environ["ASI1_API_KEY"], timeout=240)
+    client = client or AsyncOpenAI(base_url="https://api.asi1.ai/v1", api_key=os.environ["ASI1_API_KEY"], timeout=120)
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": _brief(session.stack, fixes, report_text, file_tree(session.ws), extra)}]
     tools = [{"type": "function", "function": t} for t in TOOLS]
@@ -187,8 +213,12 @@ async def work(session: Session, fixes: list[Fix], report_text: str, extra: str 
     nudged = False
     while calls < MAX_TOOL_CALLS and not session.summary:
         _trim(messages)
+        t0 = time.time()
         resp = await _complete(client, messages=messages, tools=tools)
         msg = resp.choices[0].message
+        used = getattr(resp, "usage", None)
+        _trace(f"model {time.time() - t0:.0f}s, {getattr(used, 'prompt_tokens', '?')} in / {getattr(used, 'completion_tokens', '?')} out → "
+               + (", ".join(c.function.name for c in msg.tool_calls) if msg.tool_calls else "text"))
         entry = {"role": "assistant", "content": msg.content or ""}
         if msg.tool_calls:
             entry["tool_calls"] = [{"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
@@ -211,6 +241,7 @@ async def work(session: Session, fixes: list[Fix], report_text: str, extra: str 
             else:
                 result = await session.call(c.function.name, args)
             session.log.append(f"{c.function.name}({', '.join(f'{k}={str(v)[:60]!r}' for k, v in args.items() if k != 'content')})")
+            _trace(f"  {session.log[-1]} → {result[:90]!r}")
             messages.append({"role": "tool", "tool_call_id": c.id, "content": result[:30_000]})
     if not session.summary and session.edits:
         messages.append({"role": "user", "content": "Summarise what you changed and why, as a short bullet list for the pull request."})
@@ -224,10 +255,39 @@ async def work(session: Session, fixes: list[Fix], report_text: str, extra: str 
 
 async def _complete(client: AsyncOpenAI, **kwargs):
     """One model call, retried: a dropped connection shouldn't end a fix that took ten minutes."""
-    for attempt in range(4):
+    for attempt in range(8):  # waits out a network drop of about six minutes
         try:
-            return await client.chat.completions.create(model=MODEL, temperature=0.2, max_tokens=16000, **kwargs)
+            return await _stream(client, **kwargs)
         except (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError):
-            if attempt == 3:
+            if attempt == 7:
                 raise
-            await asyncio.sleep(10 * (attempt + 1))
+            await asyncio.sleep(min(60, 15 * (attempt + 1)))
+
+
+async def _stream(client: AsyncOpenAI, **kwargs):
+    """Streamed, so writing a long file isn't cut off by the request timeout (it only applies between chunks).
+
+    Returns the same shape as a non-streamed response: .choices[0].message and .usage.
+    """
+    stream = await client.chat.completions.create(model=MODEL, temperature=0.2, max_tokens=16000, stream=True,
+                                                  reasoning_effort=REASONING,
+                                                  stream_options={"include_usage": True}, **kwargs)
+    content, calls, usage = [], {}, None
+    async for chunk in stream:
+        usage = chunk.usage or usage
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        if delta.content:
+            content.append(delta.content)
+        for tc in delta.tool_calls or []:
+            c = calls.setdefault(tc.index, {"id": None, "name": "", "args": []})
+            c["id"] = tc.id or c["id"]
+            if tc.function and tc.function.name:
+                c["name"] += tc.function.name
+            if tc.function and tc.function.arguments:
+                c["args"].append(tc.function.arguments)
+    tool_calls = [SimpleNamespace(id=c["id"] or f"call_{i}", function=SimpleNamespace(name=c["name"], arguments="".join(c["args"])))
+                  for i, c in sorted(calls.items())]
+    message = SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)

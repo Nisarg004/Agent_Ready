@@ -19,6 +19,10 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Awaitable, Callable
+from urllib.parse import urljoin, urlparse
+
+import httpx
+from bs4 import BeautifulSoup
 
 from tester_agent.shopper import Report, format_report, run as shop
 
@@ -27,6 +31,7 @@ from .playbook import Fix, Plan
 from .workspace import SKIP_DIRS, Server, Stack
 
 WORK_DIR = Path(os.getenv("FIXER_WORK_DIR") or Path(tempfile.gettempdir()) / "agentready-fixer")
+NL = chr(10)
 ROUNDS = int(os.getenv("FIXER_ROUNDS", "3"))
 
 Progress = Callable[[str], Awaitable[None]]
@@ -105,9 +110,43 @@ def pick(job: Job, text: str) -> list[Fix]:
     return [f for i, f in enumerate(job.plan.fixes, 1) if i in nums]
 
 
-async def _test_local(ws: Path, stack: Stack, site_task: str) -> Report:
+async def _test_local(ws: Path, stack: Stack, site_task: str) -> tuple[Report, list[str]]:
+    """The Tester's run on the local store, plus any broken stylesheet, script or image on the pages it used."""
     async with Server(ws, stack) as srv:
-        return await shop(srv.url, site_task)
+        report = await shop(srv.url, site_task)
+        return report, await _broken_assets(srv.url, report)
+
+
+def _broken_text(broken: list[str]) -> str:
+    if not broken:
+        return ""
+    return NL + NL + "BROKEN for human visitors (stylesheets, scripts or images that don't load):" + NL + NL.join("- " + b for b in broken)
+
+
+async def _broken_assets(origin: str, report: Report) -> list[str]:
+    """Humans still use these pages: a stylesheet that 404s passes the Tester but breaks the shop."""
+    pages = [origin + "/"] + [p["url"] for p in report.compared] + ([report.checkout_url] if report.checkout_url else [])
+    broken: list[str] = []
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as c:
+        for page in dict.fromkeys(pages):
+            try:
+                r = await c.get(page)
+            except httpx.HTTPError:
+                continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            refs = [t.get("href") for t in soup.find_all("link", rel=lambda v: v and "stylesheet" in v)]
+            refs += [t.get("src") for t in soup.find_all(["script", "img"])]
+            for ref in dict.fromkeys(filter(None, refs)):
+                url = urljoin(str(r.url), ref)
+                if not url.startswith(origin):
+                    continue  # other sites' assets (fonts, CDNs) aren't ours to check
+                try:
+                    status = (await c.get(url)).status_code
+                except httpx.HTTPError:
+                    status = 0
+                if status >= 400 or status == 0:
+                    broken.append(f"{urlparse(page).path or '/'} loads {urlparse(url).path} → HTTP {status or 'no response'}")
+    return broken[:20]
 
 
 def _exclude_build_dirs(ws: Path):
@@ -131,7 +170,7 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
     if not ok:
         return Result(False, "The store doesn't build as it is, before any change of mine:\n```\n" + out[-1200:] + "\n```")
     await progress("Running the original store locally and testing it (before)…")
-    before = await _test_local(ws, stack, job.task)
+    before, _ = await _test_local(ws, stack, job.task)
 
     last: dict = {"report": before}
 
@@ -143,16 +182,17 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
         if not ok:
             return "Build FAILED, so the store can't be tested:\n" + out
         try:
-            report = await _test_local(ws, stack, job.task)
+            report, broken = await _test_local(ws, stack, job.task)
         except RuntimeError as err:
             return str(err)
         last["report"] = report
-        return format_report(report)
+        return format_report(report) + _broken_text(broken)
 
     targets = {s for f in fixes for s in f.steps}
     session = coder.Session(ws, stack, build, test, progress)
     after: Report | None = None
     feedback = ""
+    broken: list[str] = []
     for round_no in range(1, ROUNDS + 1):
         await progress(f"Making the changes (round {round_no} of up to {ROUNDS})…" if round_no > 1 else "Making the changes with ASI:One…")
         extra = feedback
@@ -171,7 +211,11 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
             after = None
             feedback = "Your changes are still in the repo, but the build now FAILS:\n" + out + "\nFix the build first."
             continue
-        after = await _test_local(ws, stack, job.task)
+        after, broken = await _test_local(ws, stack, job.task)
+        if broken:
+            feedback = ("Your changes are still in the repo. The Tester's latest run:" + NL + format_report(after)
+                        + _broken_text(broken) + NL + "Fix these broken files: humans use these pages too.")
+            continue
         if all(s.passed for s in after.steps if s.name in targets):
             break
 
@@ -180,6 +224,9 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
         return Result(False, "I couldn't find a change that works, so I didn't touch your code.", before.to_dict())
     if after is None:
         return Result(False, "My changes didn't build, so I stopped without opening a pull request.", before.to_dict(), files=files)
+    if broken:
+        return Result(False, "My changes broke files that human visitors need, so I didn't open a pull request:\n"
+                      + "\n".join(f"- {b}" for b in broken), before.to_dict(), after.to_dict(), files=files)
     if after.passed <= before.passed:
         return Result(False, f"My changes didn't improve the shopping test ({before.passed}/5 before, {after.passed}/5 after), "
                              "so I didn't open a pull request.", before.to_dict(), after.to_dict(), files=files)
