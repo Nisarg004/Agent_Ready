@@ -50,7 +50,8 @@ How to work:
    products, design or business rules. Never weaken or bypass security (CSRF, auth, validation) for any kind of
    client, agents included: an agent can load the page and send the form's token like a browser does.
    Never hard-code a domain: build absolute URLs from the request (or an existing config/env setting).
-   Remove files you created but don't use.
+   Remove files you created but don't use (debug helpers included). Don't invent new protocol or manifest files
+   (e.g. under /.well-known/) or extra endpoints that no selected fix asks for.
 3. For a fix marked "check first", confirm whether the store already does this; if it does, change nothing for it.
 4. Call build to check your work compiles, then test_store to run the shopping Tester on the patched store. Read the
    report and keep fixing until the selected steps pass, or you are sure they can't with a reasonable change.

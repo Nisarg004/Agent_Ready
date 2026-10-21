@@ -149,6 +149,26 @@ async def _broken_assets(origin: str, report: Report) -> list[str]:
     return broken[:20]
 
 
+def _drop_unused_scripts(ws: Path) -> list[str]:
+    """Delete new scripts the model wrote for itself (debug helpers) that nothing in the repo uses."""
+    new = [f for f in github.untracked_files(ws) if f.startswith("scripts/") and Path(f).suffix in (".mjs", ".js", ".cjs", ".py")]
+    if not new:
+        return []
+    texts = []
+    for rel in workspace.file_tree(ws, 3000):
+        if rel.endswith("(binary)") or rel == "…" or rel in new:
+            continue
+        try:
+            texts.append((ws / rel).read_text(encoding="utf-8", errors="ignore"))
+        except OSError:
+            pass
+    corpus = "\n".join(texts)
+    dropped = [f for f in new if Path(f).name not in corpus]
+    for f in dropped:
+        (ws / f).unlink(missing_ok=True)
+    return dropped
+
+
 def _exclude_build_dirs(ws: Path):
     """Make sure installs and builds never end up in the commit, even if .gitignore misses them."""
     excl = ws / ".git" / "info" / "exclude"
@@ -219,6 +239,9 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
         if all(s.passed for s in after.steps if s.name in targets):
             break
 
+    dropped = _drop_unused_scripts(ws)
+    if dropped:
+        await progress("Removed leftover helper scripts: " + ", ".join(dropped))
     files = github.changed_files(ws)
     if not files:
         return Result(False, "I couldn't find a change that works, so I didn't touch your code.", before.to_dict())

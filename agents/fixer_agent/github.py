@@ -109,6 +109,12 @@ def changed_files(ws: Path) -> list[str]:
     return [line[3:].strip().strip('"') for line in out.splitlines() if line.strip()]
 
 
+def untracked_files(ws: Path) -> list[str]:
+    """New files, listed one by one (not collapsed to their folder), including ones marked intent-to-add."""
+    out = _git(["status", "--porcelain", "--untracked-files=all"], cwd=ws)
+    return [line[3:].strip().strip('"') for line in out.splitlines() if line[:2] in ("??", " A", "A ", "AM")]
+
+
 def diff(ws: Path, limit: int = 60_000) -> str:
     _git(["add", "-A", "-N"], cwd=ws)
     return _git(["diff"], cwd=ws)[:limit]

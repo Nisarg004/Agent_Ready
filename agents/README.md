@@ -57,6 +57,16 @@ Baseline on the five demo stores (19 Oct 2026, `results/baseline-2026-10-19.json
 | [Tara Handmade](https://tara-handmade.vercel.app) | Plain HTML/JS | 1/5 | Product pages are drawn by JavaScript |
 | [VoltKart](https://voltkart.onrender.com) | Node/Express | 3/5 | `robots.txt` disallows `/cart` for automated agents |
 
+Fixer dry runs on the same stores (21 Oct 2026; local build of each repo, before and after, same Tester, no PR opened):
+
+| Store | Stack | Before | After | What it changed |
+|---|---|---|---|---|
+| Stride Lab | React SPA | 0/5 | **5/5** | Build-time generator writes static product, cart and checkout pages from `products.json`; the React app still takes over in the browser |
+| Nest & Grain | Next.js | 4/5 | **5/5** | Checkout accepts `?items=` and rebuilds the cart on the server; JSON-LD, sitemap, `llms.txt` |
+| Masala Mandi | Flask | 4/5 | **5/5** | Shareable checkout link; ₹299 minimum still enforced when placing the order |
+| Tara Handmade | Plain HTML/JS | 1/5 | **5/5** | Generator script reads `js/products.js` and writes product, cart and checkout pages |
+| VoltKart | Node/Express | 3/5 | **5/5** | robots.txt lets shopping agents use the cart; checkout link carries the cart; CSRF unchanged |
+
 ## Run it locally
 
 Requires Python 3.10+.
