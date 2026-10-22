@@ -67,6 +67,8 @@ Fixer dry runs on the same stores (21 Oct 2026; local build of each repo, before
 | Tara Handmade | Plain HTML/JS | 1/5 | **5/5** | Generator script reads `js/products.js` and writes product, cart and checkout pages |
 | VoltKart | Node/Express | 3/5 | **5/5** | robots.txt lets shopping agents use the cart; checkout link carries the cart; CSRF unchanged |
 
+After merging the five Fixer pull requests (22 Oct 2026), the Tester scores **5/5 on every live store** (`results/after-merge-2026-10-22.json`). The checkout links it handed over were then used to place demo orders as a human would: Nest & Grain `NG-MVJ6W8DN`, Masala Mandi `MM2652303`, Tara Handmade `TH342453`, Stride Lab `SL52386880` (VoltKart needs a customer account to place the order).
+
 ## Run it locally
 
 Requires Python 3.10+.

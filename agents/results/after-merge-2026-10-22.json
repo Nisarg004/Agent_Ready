@@ -1,0 +1,390 @@
+[
+  {
+    "site": "https://stride-lab-beta.vercel.app",
+    "task": "running shoes under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 209 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: found",
+          "sitemap.xml product URLs: 16",
+          "Listing pages read: 2 · product links found: 32",
+          "Products read: 16 (16 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Adidas Deerupt Runner (₹5,599) with Nike Free Run Flyknit (₹8,995); Adidas Deerupt Runner matches the request more closely.",
+        "evidence": [
+          "Data from structured data",
+          "Data from structured data"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Adidas Deerupt Runner to the cart using the site's add-to-cart link.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Followed the page's add-to-cart link: /buy/deerupt-runner-grey/ → HTTP 200",
+          "The page it landed on, /buy/deerupt-runner-grey/, is a cart showing the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": true,
+        "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+        "evidence": [
+          "Opened /checkout/deerupt-runner-grey/ as the human would (fresh browser, no agent cookies) → /checkout/deerupt-runner-grey/"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Adidas Deerupt Runner",
+      "price": 5599.0,
+      "url": "https://stride-lab-beta.vercel.app/products/deerupt-runner-grey/"
+    },
+    "compared": [
+      {
+        "name": "Adidas Deerupt Runner",
+        "price": 5599.0,
+        "url": "https://stride-lab-beta.vercel.app/products/deerupt-runner-grey/",
+        "source": "structured data"
+      },
+      {
+        "name": "Nike Free Run Flyknit",
+        "price": 8995.0,
+        "url": "https://stride-lab-beta.vercel.app/products/free-run-flyknit-crimson/",
+        "source": "structured data"
+      }
+    ],
+    "checkout_url": "https://stride-lab-beta.vercel.app/checkout/deerupt-runner-grey/",
+    "blocked_agents": [],
+    "seconds": 3.6,
+    "passed": 5,
+    "total": 5
+  },
+  {
+    "site": "https://nest-and-grain.vercel.app",
+    "task": "a dining chair under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 246 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: found",
+          "sitemap.xml product URLs: 26",
+          "Listing pages read: 8 · product links found: 26",
+          "Products read: 26 (26 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Linen Upholstered Dining Chair (₹7,900) with Nordic Dining Chair (Set of 2) (₹8,900); both fit equally, so it chose the cheaper one.",
+        "evidence": [
+          "Data from structured data",
+          "Data from structured data"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Linen Upholstered Dining Chair to the cart using the site's own form.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Submitted the page's own form: POST /products/linen-dining-chair → HTTP 200",
+          "The page it landed on, /cart, is a cart showing the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": true,
+        "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+        "evidence": [
+          "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Linen Upholstered Dining Chair",
+      "price": 7900.0,
+      "url": "https://nest-and-grain.vercel.app/products/linen-dining-chair"
+    },
+    "compared": [
+      {
+        "name": "Linen Upholstered Dining Chair",
+        "price": 7900.0,
+        "url": "https://nest-and-grain.vercel.app/products/linen-dining-chair",
+        "source": "structured data"
+      },
+      {
+        "name": "Nordic Dining Chair (Set of 2)",
+        "price": 8900.0,
+        "url": "https://nest-and-grain.vercel.app/products/nordic-dining-chair",
+        "source": "structured data"
+      }
+    ],
+    "checkout_url": "https://nest-and-grain.vercel.app/checkout?items=NG2416:1",
+    "blocked_agents": [],
+    "seconds": 10.9,
+    "passed": 5,
+    "total": 5
+  },
+  {
+    "site": "https://masala-mandi.onrender.com",
+    "task": "garam masala under ₹500",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 348 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: found",
+          "sitemap.xml product URLs: 25",
+          "Listing pages read: 8 · product links found: 25",
+          "Products read: 25 (25 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Shahi Garam Masala (₹129) with Dalchini (Cinnamon) (₹79); Shahi Garam Masala matches the request more closely.",
+        "evidence": [
+          "Data from structured data",
+          "Data from structured data"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Shahi Garam Masala to the cart using the site's own form.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Submitted the page's own form: POST /cart/add → HTTP 200",
+          "Cart page /cart shows the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": true,
+        "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+        "evidence": [
+          "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Shahi Garam Masala",
+      "price": 129.0,
+      "url": "https://masala-mandi.onrender.com/product/garam-masala"
+    },
+    "compared": [
+      {
+        "name": "Shahi Garam Masala",
+        "price": 129.0,
+        "url": "https://masala-mandi.onrender.com/product/garam-masala",
+        "source": "structured data"
+      },
+      {
+        "name": "Dalchini (Cinnamon)",
+        "price": 79.0,
+        "url": "https://masala-mandi.onrender.com/product/dalchini-cinnamon",
+        "source": "structured data"
+      }
+    ],
+    "checkout_url": "https://masala-mandi.onrender.com/checkout?items=MM-012-100:1",
+    "blocked_agents": [],
+    "seconds": 4.5,
+    "passed": 5,
+    "total": 5
+  },
+  {
+    "site": "https://tara-handmade.vercel.app",
+    "task": "a pearl necklace under ₹6,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 240 words of readable text without JavaScript",
+          "robots.txt: not found"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: found",
+          "sitemap.xml product URLs: 16",
+          "Listing pages read: 5 · product links found: 32",
+          "Products read: 16 (16 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Single Pearl Drop Necklace (₹1,990) with Moti Pearl Strand (₹5,890); both fit equally, so it chose the cheaper one.",
+        "evidence": [
+          "Data from structured data",
+          "Data from structured data"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Single Pearl Drop Necklace to the cart using the site's add-to-cart link.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Followed the page's add-to-cart link: /buy/single-pearl-drop/ → HTTP 200",
+          "The page it landed on, /buy/single-pearl-drop/, is a cart showing the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": true,
+        "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+        "evidence": [
+          "Opened /checkout/single-pearl-drop/ as the human would (fresh browser, no agent cookies) → /checkout/single-pearl-drop/"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Single Pearl Drop Necklace",
+      "price": 1990.0,
+      "url": "https://tara-handmade.vercel.app/products/single-pearl-drop/"
+    },
+    "compared": [
+      {
+        "name": "Single Pearl Drop Necklace",
+        "price": 1990.0,
+        "url": "https://tara-handmade.vercel.app/products/single-pearl-drop/",
+        "source": "structured data"
+      },
+      {
+        "name": "Moti Pearl Strand",
+        "price": 5890.0,
+        "url": "https://tara-handmade.vercel.app/products/moti-pearl-strand/",
+        "source": "structured data"
+      }
+    ],
+    "checkout_url": "https://tara-handmade.vercel.app/checkout/single-pearl-drop/",
+    "blocked_agents": [],
+    "seconds": 4.2,
+    "passed": 5,
+    "total": 5
+  },
+  {
+    "site": "https://voltkart.onrender.com",
+    "task": "wireless earbuds under ₹10,000",
+    "steps": [
+      {
+        "name": "Reach the site",
+        "passed": true,
+        "detail": "The homepage loads and has readable content without JavaScript.",
+        "evidence": [
+          "Homepage: 358 words of readable text without JavaScript",
+          "robots.txt: found",
+          "robots.txt blocks: CCBot"
+        ]
+      },
+      {
+        "name": "Find products",
+        "passed": true,
+        "detail": "Found 2 products matching the task.",
+        "evidence": [
+          "llms.txt: found",
+          "sitemap.xml product URLs: 21",
+          "Listing pages read: 8 · product links found: 21",
+          "Products read: 21 (21 from structured data)"
+        ]
+      },
+      {
+        "name": "Compare options",
+        "passed": true,
+        "detail": "Compared Volt Essentials Buds Air TWS Earbuds (₹1,299) with Google Pixel Buds A-Series (₹6,999); both fit equally, so it chose the cheaper one.",
+        "evidence": [
+          "Data from structured data",
+          "Data from structured data"
+        ]
+      },
+      {
+        "name": "Add to cart",
+        "passed": true,
+        "detail": "Added Volt Essentials Buds Air TWS Earbuds to the cart using the site's own form.",
+        "evidence": [
+          "Standard agent commerce manifest (/.well-known/ucp): not found",
+          "Submitted the page's own form: POST /cart/add → HTTP 200",
+          "The page it landed on, /cart, is a cart showing the product"
+        ]
+      },
+      {
+        "name": "Checkout link",
+        "passed": true,
+        "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+        "evidence": [
+          "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Volt Essentials Buds Air TWS Earbuds",
+      "price": 1299.0,
+      "url": "https://voltkart.onrender.com/p/volt-buds-air"
+    },
+    "compared": [
+      {
+        "name": "Volt Essentials Buds Air TWS Earbuds",
+        "price": 1299.0,
+        "url": "https://voltkart.onrender.com/p/volt-buds-air",
+        "source": "structured data"
+      },
+      {
+        "name": "Google Pixel Buds A-Series",
+        "price": 6999.0,
+        "url": "https://voltkart.onrender.com/p/google-pixel-buds-a-series",
+        "source": "structured data"
+      }
+    ],
+    "checkout_url": "https://voltkart.onrender.com/checkout?items=VK-AUD-006:1",
+    "blocked_agents": [
+      "CCBot"
+    ],
+    "seconds": 7.1,
+    "passed": 5,
+    "total": 5
+  }
+]
