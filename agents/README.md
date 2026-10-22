@@ -10,7 +10,7 @@ Agent Chat Protocol, so they can be used from ASI:One.
 |---|---|---|
 | **AgentReady** | Scans a website and explains how well AI shopping agents can find, read and buy from it | `agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v` (local dev seed) |
 | **AgentReady Tester** | Actually tries to shop on a website like an AI agent (find, compare, add to cart, get a checkout link) and reports each step | `agent1qvxkjpe6z7gnheuzqhf6hp6cuwld7serzjuhktyvdph9cgn3vgf6zw3zv2e` (local dev seed) |
-| **AgentReady Fixer** | Changes the store's code on GitHub so agents can buy, proves it with a before/after Tester run, and opens a pull request | see `python fixer_agent/agent.py` output |
+| **AgentReady Fixer** | Changes the store's code on GitHub so agents can buy, proves it with a before/after Tester run, and opens a pull request | `agent1q2y3q9z0y3dd3rj4m5ajgu5vpkv6gwaff2h2jd52yhx3l6demp0lxnaq9sd` (local dev seed) |
 
 ## How the Fixer works
 
@@ -93,6 +93,12 @@ python tools/local_chat_test.py "Is example.com ready for AI shoppers?"
 
 ```bash
 python agentready_agent/agent.py
+```
+
+**Run all three agents for ASI:One** (each in its own window, connected to Agentverse):
+
+```bash
+powershell -ExecutionPolicy Bypass -File agents\start_agents.ps1
 ```
 
 ## Connect to Agentverse and ASI:One
