@@ -114,6 +114,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         report = await run(site, task)
         text_out = format_report(report)
         if not internal:
+            await team.set_site(sender, site)
             known = await memory.update(sender, site=site, task=task, shop=f"{report.passed}/5 steps on {site}")
             await memory.remember(sender, "Tester", "agent", f"Shopping test on {site}: {report.passed}/5")
             handoff = await team.request_fix("tester", sender, known, report.passed, task)

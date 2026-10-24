@@ -134,6 +134,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         ask_tester(ctx, intent.url, intent.shopping),
     )
     passed = tester_passed(tester_reply)
+    await team.set_site(sender, intent.url)
     # Shared with the Tester and Fixer, so any of them knows which site and scan "my store" means.
     known = await memory.update(
         sender, site=intent.url, task=intent.shopping, scan_id=scan_id, scanned_at=time.time(),

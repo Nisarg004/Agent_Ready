@@ -162,6 +162,7 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     if job:
         fixer.cleanup(job)
     _jobs[sender] = new
+    await team.set_site(sender, site, repo.full)
     await memory.update(sender, site=site, repo=repo.full, task=task, shop=f"{new.live['passed']}/5 steps on {site}", fix="plan ready, waiting for your go-ahead", fix_state="waiting", fix_site=site)
     await ctx.send(sender, message(new.live_text + "\n\n---\n\n" + fixer.plan_text(new)))
 

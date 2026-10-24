@@ -50,10 +50,29 @@ def find_repo(text: str) -> str | None:
     return f"{ref[0]}/{ref[1]}" if ref else None
 
 
+# Everything known about one store. A different store starts from a clean slate, so a repo
+# or a pull request from an earlier conversation is never applied to the wrong site.
+PER_SITE = ("repo", "task", "scan", "scan_id", "shop", "fix", "fix_state", "fix_site", "pr_url", "pending")
+
+
+def same_site(a: str, b: str) -> bool:
+    host = lambda u: re.sub(r"^(https?://)?(www\.)?", "", u.strip().lower()).split("/")[0]  # noqa: E731
+    return host(a) == host(b)
+
+
+async def set_site(user: str, site: str, repo: str | None = None) -> dict:
+    """Make `site` the user's current store, forgetting what belonged to a different one."""
+    known = await memory.facts(user)
+    if known.get("site") and not same_site(site, known["site"]):
+        await memory.update(user, scanned_at=0, **{k: "" for k in PER_SITE})
+    return await memory.update(user, site=site, repo=repo)
+
+
 async def learn(user: str, me: str, text: str) -> dict:
     """Record the message and what it says about the user's store; return everything known."""
     await memory.remember(user, AGENTS[me], "user", text)
-    known = await memory.update(user, site=find_site(text), repo=find_repo(text))
+    site, repo = find_site(text), find_repo(text)
+    known = await set_site(user, site, repo) if site else await memory.update(user, repo=repo)
     if known.get("site") and not sites.is_site(known["site"]):
         known = await memory.update(user, site="")  # e.g. a GitHub link saved as the site by an older version
     return known
