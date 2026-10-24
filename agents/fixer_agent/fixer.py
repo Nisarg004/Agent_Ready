@@ -65,6 +65,7 @@ class Result:
     files: list[str] = field(default_factory=list)
     summary: str = ""
     diff: str = ""
+    draft: bool = False  # opened as a draft: the change didn't build, broke pages, or didn't improve the test
 
 
 def _rmtree(p: Path):
@@ -180,7 +181,8 @@ def _exclude_build_dirs(ws: Path):
 async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr: bool = True) -> Result:
     ws, stack = job.ws, job.stack
     if stack.kind == "unknown":
-        return Result(False, "I couldn't recognise how this store is built, so I can't run and test it safely.")
+        return Result(False, "I couldn't recognise how this store is built, so I can't run and test it safely. "
+                             "I can fix stores built with Next.js, Vite + React/Vue/Svelte, Node/Express, Flask, Django or plain HTML.")
     _exclude_build_dirs(ws)
 
     await progress(f"Installing the store ({stack.label})…")
@@ -246,24 +248,29 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
     files = github.changed_files(ws)
     if not files:
         return Result(False, "I couldn't find a change that works, so I didn't touch your code.", before.to_dict())
+    # Code changed but it isn't a clean win: still propose it, as a draft that can't be merged by accident.
+    draft = None
     if after is None:
-        return Result(False, "My changes didn't build, so I stopped without opening a pull request.", before.to_dict(), files=files)
-    if broken:
-        return Result(False, "My changes broke files that human visitors need, so I didn't open a pull request:\n"
-                      + "\n".join(f"- {b}" for b in broken), before.to_dict(), after.to_dict(), files=files)
-    if after.passed <= before.passed:
-        return Result(False, f"My changes didn't improve the shopping test ({before.passed}/5 before, {after.passed}/5 after), "
-                             "so I didn't open a pull request.", before.to_dict(), after.to_dict(), files=files)
-
-    result = Result(True, "", before.to_dict(), after.to_dict(), files=files, summary=session.summary, diff=github.diff(ws))
+        draft = "My changes don't build yet."
+    elif broken:
+        draft = "My changes broke files that human visitors need:\n" + "\n".join(f"- {b}" for b in broken)
+    elif after.passed <= before.passed:
+        draft = f"My changes didn't improve the shopping test ({before.passed}/5 before, {after.passed}/5 after)."
+    shown = after or before
+    result = Result(not draft, draft or "", before.to_dict(), after.to_dict() if after else None, files=files,
+                    summary=session.summary, diff=github.diff(ws), draft=bool(draft))
     if not open_pr:
-        result.message = "Dry run: changes made and tested locally, no pull request opened."
+        result.message = (draft + " " if draft else "") + "Dry run: changes made and tested locally, no pull request opened."
         return result
-    await progress("Opening a pull request…")
+    await progress("Opening a draft pull request…" if draft else "Opening a pull request…")
     branch = f"agentready/fix-{time.strftime('%Y%m%d-%H%M')}"
-    title = f"Make the store usable by AI shopping agents ({before.passed}/5 → {after.passed}/5)"
+    title = (f"Draft: AI shopping agent fixes ({before.passed}/5 → {after.passed if after else '?'}/5), needs review" if draft
+             else f"Make the store usable by AI shopping agents ({before.passed}/5 → {after.passed}/5)")
+    body = pr_body(job, fixes, before, shown, session.summary)
+    if draft:
+        body = f"> ⚠️ **Draft, needs review.** {draft} The changes are here so you can see and finish them.\n\n" + body
     await asyncio.to_thread(github.commit_and_push, ws, branch, title)
-    result.pr_url = await github.open_pr(job.repo, branch, title, pr_body(job, fixes, before, after, session.summary))
+    result.pr_url = await github.open_pr(job.repo, branch, title, body, draft=bool(draft))
     result.branch = branch
     return result
 

@@ -168,14 +168,19 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
 
 
 async def _apply(ctx: Context, sender: str, job: fixer.Job, fixes):
-    await team.tell_user(ctx, "fixer", sender, await _apply_fixes(ctx, sender, job, fixes))
+    async def step(text: str):
+        await ctx.send(sender, message(f"⏳ {text}", end=False))
+
+    await team.tell_user(ctx, "fixer", sender, await _apply_fixes(ctx, sender, job, fixes, on_step=step))
 
 
-async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_flow: bool = False) -> str:
-    """Make, test and propose the fixes; returns the message for the user."""
+async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_flow: bool = False, on_step=None) -> str:
+    """Make, test and propose the fixes; returns the message for the user. on_step(text) shows each step live."""
     async def progress(step: str):
         ctx.logger.info(f"[{job.repo.full}] {step}")
         await memory.update(sender, fix=step)
+        if on_step:
+            await on_step(step)
 
     try:
         async with _busy:
@@ -187,11 +192,16 @@ async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_fl
     finally:
         _jobs.pop(sender, None)
         fixer.cleanup(job)
-    await memory.update(sender, fix="pull request open, waiting for you to merge" if res.pr_url else "no pull request",
-                        fix_state="done" if res.pr_url else "failed", pr_url=res.pr_url)
+    if res.pr_url and res.draft:
+        await memory.update(sender, fix="draft pull request open, needs review", fix_state="draft", pr_url=res.pr_url)
+    elif res.pr_url:
+        await memory.update(sender, fix="pull request open, waiting for you to merge", fix_state="done", pr_url=res.pr_url)
+    else:
+        await memory.update(sender, fix="no pull request", fix_state="failed")
     if res.after:
         await memory.update(sender, shop=f"{res.after['passed']}/5 steps on {job.site} after the fix")
-    lines = [f"## {'✅ Pull request ready' if res.pr_url else '⚠️ No pull request'}: {job.repo.full}", ""]
+    head = ("📝 Draft pull request" if res.draft else "✅ Pull request ready") if res.pr_url else "⚠️ No pull request"
+    lines = [f"## {head}: {job.repo.full}", ""]
     if res.before and res.after:
         lines += [f"**AI shopping test: {res.before['passed']}/5 → {res.after['passed']}/5**", "", "| Step | Before | After |", "|---|---|---|"]
         lines += [f"| {b['name']} | {'✅' if b['passed'] else '❌'} | {'✅' if a['passed'] else '❌'} |"
@@ -201,7 +211,10 @@ async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_fl
         lines += [res.message, ""]
     if res.summary:
         lines += ["**What I changed**", res.summary, ""]
-    if res.pr_url and team_flow:
+    if res.pr_url and res.draft:
+        lines += [f"Review it here: {res.pr_url}", "",
+                  "It's a draft because the change isn't a clean win yet, so I won't merge it. Finish it on GitHub, or say **fix it** to have me try again."]
+    elif res.pr_url and team_flow:
         lines += [f"Review it here: {res.pr_url}", "",
                   "Reply **merge** and I'll merge it. Once the site has redeployed, the Tester checks it live and you get the result here."
                   if not team.AUTO_MERGE else "Merging it now; the Tester will check the live site after the deploy."]
@@ -218,8 +231,11 @@ async def fix_for_team(ctx: Context, task: dict):
     site = task.get("site") if sites.is_site(task.get("site") or "") else None
     ctx.logger.info(f"Team task {task['id']}: fix {repo} for {site or '(site from repo)'}, asked by {by}")
 
-    async def tell(text: str):
-        await team.tell_user(ctx, "fixer", user, text, via=by)
+    async def tell(text: str, final: bool = True):
+        await team.tell_user(ctx, "fixer", user, text, via=by, final=final)
+
+    async def step(text: str):
+        await tell(f"⏳ **Fixer:** {text}", final=False)
 
     async def fail(text: str):
         ctx.logger.warning(f"Team task {task['id']}: {text}")
@@ -238,7 +254,7 @@ async def fix_for_team(ctx: Context, task: dict):
             await fail(f"I don't know where {repo} is live. Send me the site address, e.g. `mystore.com`, then say **fix it**.")
             return
         await memory.update(user, site=site, fix_site=site)
-    await tell(f"**Fixer:** I'm on it. Reading the code of {repo} and testing {site}.")
+    await tell(f"⏳ **Fixer:** I'm on it. Reading the code of {repo} and testing {site}.", final=False)
     try:
         job = await fixer.diagnose(site, owner, name, task["task"])
     except Exception as err:
@@ -251,12 +267,13 @@ async def fix_for_team(ctx: Context, task: dict):
         await tell(job.live_text + "\n\n---\n\n" + fixer.plan_text(job))
         fixer.cleanup(job)
         return
-    await tell(f"**Fixer:** plan ready, {len(job.plan.fixes)} fix(es) for a {job.stack.label} store. Applying them and "
-               "testing the patched store; this usually takes 5 to 15 minutes.")
-    result = await _apply_fixes(ctx, user, job, list(job.plan.fixes), team_flow=True)
+    await tell(f"⏳ **Fixer:** plan ready, {len(job.plan.fixes)} fix(es) for a {job.stack.label} store: "
+               + "; ".join(fx.title for fx in job.plan.fixes)
+               + ". Applying them and testing the patched store; this usually takes 5 to 15 minutes.", final=False)
+    result = await _apply_fixes(ctx, user, job, list(job.plan.fixes), team_flow=True, on_step=step)
     ctx.logger.info(f"Team task {task['id']}: done: {result.splitlines()[0]}")
-    await tell(result)
     known = await memory.facts(user)
+    await tell(result, final=not (team.AUTO_MERGE and known.get("fix_state") == "done"))
     if team.AUTO_MERGE and known.get("fix_state") == "done":
         await memory.update(user, fix_state="merging")
         await merge_for_team(ctx, {**task, "site": site, "pr_url": known["pr_url"]})
@@ -277,8 +294,8 @@ async def merge_for_team(ctx: Context, task: dict):
         await team.tell_user(ctx, "fixer", user, f"**Fixer:** I couldn't merge {pr_url}: {err}", via=by)
         return
     await memory.update(user, fix="merged, waiting for the deploy", fix_state="merged")
-    await team.tell_user(ctx, "fixer", user, f"**Fixer:** merged {pr_url}. Waiting for {task['site']} to redeploy; "
-                         "then the Tester shops on the live site and you get the result here.", via=by)
+    await team.tell_user(ctx, "fixer", user, f"⏳ **Fixer:** merged {pr_url}. Waiting for {task['site']} to redeploy; "
+                         "then the Tester shops on the live site and you get the result here.", via=by, final=False)
     await memory.post_task("agentready", "verify", user, site=task["site"], task=task.get("task"))
 
 

@@ -129,10 +129,14 @@ def commit_and_push(ws: Path, branch: str, message: str) -> None:
     _git(["push", "-q", "origin", branch], cwd=ws, auth=True)
 
 
-async def open_pr(repo: Repo, branch: str, title: str, body: str) -> str:
+async def open_pr(repo: Repo, branch: str, title: str, body: str, draft: bool = False) -> str:
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post(f"{API}/repos/{repo.full}/pulls", headers=_headers(),
-                         json={"title": title, "head": branch, "base": repo.default_branch, "body": body})
+                         json={"title": title, "head": branch, "base": repo.default_branch, "body": body, "draft": draft})
+        if draft and r.status_code == 422 and "draft" in r.text.lower():
+            # Draft PRs aren't available on every plan: open a normal one; its title and body still say "Draft".
+            r = await c.post(f"{API}/repos/{repo.full}/pulls", headers=_headers(),
+                             json={"title": title, "head": branch, "base": repo.default_branch, "body": body})
     if r.status_code >= 300:
         raise GitHubError(f"GitHub refused the pull request ({r.status_code}): {r.text[:300]}")
     return r.json()["html_url"]

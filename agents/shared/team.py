@@ -26,7 +26,7 @@ AUTO_FIX = os.getenv("TEAM_AUTO_FIX", "true").lower() == "true"
 # The Fixer also merges its pull request (which deploys the store) without waiting for "merge".
 AUTO_MERGE = os.getenv("TEAM_AUTO_MERGE", "false").lower() == "true"
 # A fix that is queued, running, waiting for "apply" or waiting for a merge isn't requested again.
-FIX_IN_HAND = {"requested", "working", "waiting", "done", "merging", "merged"}
+FIX_IN_HAND = {"requested", "working", "waiting", "done", "draft", "merging", "merged"}
 
 _STATUS_RE = re.compile(r"\b(status|what('?s| is) (going on|happening|the plan)|what happen\w*|any update\w*|updates?\?|where are we|progress|what do you know)\b", re.I)
 _MINE_RE = re.compile(r"\b(my|our|same|again)\b|\bre-?(scan|test)\b", re.I)
@@ -121,26 +121,38 @@ async def first_in_a_while(user: str, what: str, seconds: int = QUIET_S) -> bool
     return True
 
 
-def chat_message(text: str) -> ChatMessage:
-    return ChatMessage(content=[TextContent(type="text", text=text), EndSessionContent(type="end-session")])
+def chat_message(text: str, end: bool = True) -> ChatMessage:
+    """end=False keeps the chat session open, so later updates still show in the user's conversation."""
+    content = [TextContent(type="text", text=text)]
+    if end:
+        content.append(EndSessionContent(type="end-session"))
+    return ChatMessage(content=content)
 
 
-async def tell_user(ctx: Context, me: str, user: str, text: str, via: str | None = None):
+# While one of these is going on, more messages are coming: the session stays open.
+ONGOING = {"requested", "working", "merging", "merged"}
+
+
+async def work_in_progress(user: str) -> bool:
+    return (await memory.facts(user)).get("fix_state") in ONGOING
+
+
+async def tell_user(ctx: Context, me: str, user: str, text: str, via: str | None = None, final: bool = True):
     """Message the user from a background job and keep it in the shared record.
 
     via: the agent the user is chatting with. The message goes out through it, so it
-    lands in the conversation the user already has open.
+    lands in the conversation the user already has open. final=False: more updates follow.
     """
     await memory.remember(user, AGENTS[me], "agent", text)
     if via and via != me and via in AGENTS:
-        await memory.post_task(via, "notify", user, text=text)
+        await memory.post_task(via, "notify", user, text=text, final=final)
     else:
-        await ctx.send(user, chat_message(text))
+        await ctx.send(user, chat_message(text, end=final))
 
 
 async def deliver(ctx: Context, task: dict):
     """A message another agent wants passed to the user."""
-    await ctx.send(task["user"], chat_message(task["text"]))
+    await ctx.send(task["user"], chat_message(task["text"], end=task.get("final", True)))
 
 
 async def start_fix(by: str, user: str, known: dict, task: str | None = None) -> str:
@@ -188,6 +200,8 @@ async def request_fix(by: str, user: str, known: dict, passed: int, task: str | 
 async def start_merge(by: str, user: str, known: dict) -> str:
     """The user approved the Fixer's pull request: merge it, then have the Tester check the live site."""
     pr_url, repo = known.get("pr_url"), known.get("repo")
+    if pr_url and known.get("fix_state") == "draft":
+        return f"{pr_url} is a draft: the change isn't a clean win yet, so I won't merge it. Review it on GitHub, or say **fix it** to try again."
     if not pr_url or known.get("fix_state") != "done":
         return "There's no pull request waiting to be merged."
     await memory.update(user, fix="merging", fix_state="merging")

@@ -97,11 +97,13 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         return
     site_in_text = team.find_site(text)
     if team.wants_merge(text):
-        await ctx.send(sender, text_message(await team.start_merge("agentready", sender, known)))
+        reply = await team.start_merge("agentready", sender, known)
+        await ctx.send(sender, text_message(reply, end_session=not await team.work_in_progress(sender)))
         return
     if not site_in_text and (team.find_repo(text) or team.wants_fix(text)):
         # "fix it", or the GitHub repo sent after we asked for it: the Fixer takes over from here.
-        await ctx.send(sender, text_message(await team.start_fix("agentready", sender, known)))
+        reply = await team.start_fix("agentready", sender, known)
+        await ctx.send(sender, text_message(reply, end_session=not await team.work_in_progress(sender)))
         return
 
     intent = await brain.understand(text)
@@ -148,7 +150,8 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         handoff = await team.start_fix("agentready", sender, known, intent.shopping)
     else:
         handoff = await team.request_fix("agentready", sender, known, passed, intent.shopping) if passed is not None else None
-    await ctx.send(sender, text_message(combine(scan_reply, tester_reply, handoff)))
+    await ctx.send(sender, text_message(combine(scan_reply, tester_reply, handoff),
+                                        end_session=not await team.work_in_progress(sender)))
 
 
 async def verify_live(ctx: Context, task: dict):
