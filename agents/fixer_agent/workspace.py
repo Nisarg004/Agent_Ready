@@ -164,7 +164,14 @@ async def build(ws: Path, stack: Stack) -> tuple[bool, str]:
         return code == 0, _tail_errors(out)
     if stack.kind in ("flask", "django"):
         code, out = await _run([sys.executable, "-m", "compileall", "-q", "-x", r"[\\/]\.venv[\\/]", "."], app_dir(ws, stack), 120)
-        return code == 0, out[-3000:]
+        if code != 0:
+            return False, out[-3000:]
+        if stack.kind == "django":
+            # Many stores load their catalogue in a data migration: without it the local copy is empty.
+            py = str(app_dir(ws, stack) / ".venv" / ("Scripts" if os.name == "nt" else "bin") / "python")
+            code, out = await _run([py, "manage.py", "migrate", "--noinput"], app_dir(ws, stack), 300)
+            return code == 0, out[-3000:]
+        return True, ""
     return True, ""
 
 

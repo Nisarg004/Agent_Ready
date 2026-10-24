@@ -153,9 +153,14 @@ async def _broken_assets(origin: str, report: Report) -> list[str]:
 def _drop_unused_scripts(ws: Path, ran: set[str] = frozenset()) -> list[str]:
     """Delete new scripts the model wrote for itself (debug helpers) that nothing in the repo uses."""
     # A script the model ran is how its generated files get rebuilt: always kept.
-    new = [f for f in github.untracked_files(ws) if f.startswith("scripts/") and Path(f).suffix in (".mjs", ".js", ".cjs", ".py") and f not in ran]
+    scripts = [f for f in github.untracked_files(ws) if "scripts/" in f and Path(f).suffix in (".mjs", ".js", ".cjs", ".py")]
+    # Debugging helpers never belong in the pull request, even if the model ran them.
+    debug = [f for f in scripts if re.match(r"(debug|probe|tmp|temp|scratch|check|inspect)[_-]", Path(f).name, re.I)]
+    for f in debug:
+        (ws / f).unlink(missing_ok=True)
+    new = [f for f in scripts if f not in debug and f not in ran]
     if not new:
-        return []
+        return debug
     texts = []
     for rel in workspace.file_tree(ws, 3000):
         if rel.endswith("(binary)") or rel == "…" or rel in new:
@@ -168,14 +173,15 @@ def _drop_unused_scripts(ws: Path, ran: set[str] = frozenset()) -> list[str]:
     dropped = [f for f in new if Path(f).name not in corpus]
     for f in dropped:
         (ws / f).unlink(missing_ok=True)
-    return dropped
+    return debug + dropped
 
 
 def _exclude_build_dirs(ws: Path):
     """Make sure installs and builds never end up in the commit, even if .gitignore misses them."""
     excl = ws / ".git" / "info" / "exclude"
     excl.parent.mkdir(parents=True, exist_ok=True)
-    excl.write_text("\n".join(f"{d}/" for d in sorted(SKIP_DIRS - {".git"})) + "\n*-server.log\n", encoding="utf-8")
+    junk = ["*.log", "*.sqlite3", "*.sqlite", "*.db", "*.pyc", ".env", ".env.*"]
+    excl.write_text("\n".join([f"{d}/" for d in sorted(SKIP_DIRS - {".git"})] + junk) + "\n", encoding="utf-8")
 
 
 async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr: bool = True) -> Result:
@@ -194,6 +200,14 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
         return Result(False, "The store doesn't build as it is, before any change of mine:\n```\n" + out[-1200:] + "\n```")
     await progress("Running the original store locally and testing it (before)…")
     before, _ = await _test_local(ws, stack, job.task)
+    if before.passed < job.live["passed"]:
+        # The local copy is worse than the live site (missing data, settings or services): testing changes
+        # against it would prove nothing, so stop instead of "fixing" a broken environment.
+        failed = next((s for s in before.steps if not s.passed), None)
+        return Result(False, f"My local copy of the store doesn't behave like the live site ({before.passed}/5 locally, "
+                             f"{job.live['passed']}/5 live; locally: {failed.detail if failed else 'unknown'}), so I can't test "
+                             "changes reliably. This usually means it needs data or settings that only exist on the server.",
+                      before.to_dict())
 
     last: dict = {"report": before}
 
