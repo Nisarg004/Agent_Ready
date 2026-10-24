@@ -61,7 +61,7 @@ Three Fetch.ai agents, registered on Agentverse and usable from ASI:One, that wo
 
 ## One conversation, three agents
 
-Everything happens in a single ASI:One chat with AgentReady. The owner never has to talk to the other agents.
+Everything happens in a single ASI:One chat with AgentReady. The owner never has to talk to the other agents. An illustration of the flow (replies shortened):
 
 ```text
 You:        Is voltkart.onrender.com ready for AI shoppers?
