@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 import time
 from collections import defaultdict, deque
@@ -18,6 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from uagents import Agent, Context, Protocol  # noqa: E402
 from uagents_core.contrib.protocols.chat import (  # noqa: E402
@@ -30,6 +32,7 @@ from uagents_core.contrib.protocols.chat import (  # noqa: E402
 )
 
 import brain  # noqa: E402
+from shared import memory, team  # noqa: E402
 
 # Our API lets this agent skip its per-IP limit, so the agent limits each
 # chat user instead. In memory is enough: a restart forgiving everyone is fine.
@@ -37,6 +40,10 @@ SCANS_PER_HOUR = int(os.getenv("AGENT_SCANS_PER_USER_PER_HOUR", "25"))
 # The AgentReady Tester agent we ask to try shopping on each site.
 TESTER_ADDRESS = os.getenv("TESTER_AGENT_ADDRESS", "").strip()
 TESTER_TIMEOUT_S = int(os.getenv("TESTER_TIMEOUT_S", "150"))
+# After a merge: how often and how many times the Tester checks the live site while it redeploys.
+VERIFY_WAIT_S = int(os.getenv("VERIFY_WAIT_S", "90"))
+VERIFY_TRIES = int(os.getenv("VERIFY_TRIES", "6"))
+RESCAN_S = 600  # the same site isn't rescanned within 10 minutes unless the user asks again
 _recent: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -79,8 +86,28 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         return  # a late Tester report: already handled (or timed out) inside ask_tester
 
     ctx.logger.info(f"Message from {sender[:16]}…: {text[:120]!r}")
+    if team.is_chatter(text):
+        # Long commentary, typically ASI:One's assistant reacting to our last message. Answering it would start a loop.
+        ctx.logger.info(f"Ignoring long message from {sender[:16]}… ({len(text)} chars)")
+        return
+
+    known = await team.learn(sender, "agentready", text)
+    if team.wants_status(text):
+        await ctx.send(sender, text_message(await memory.summary(sender)))
+        return
+    site_in_text = team.find_site(text)
+    if team.wants_merge(text):
+        await ctx.send(sender, text_message(await team.start_merge("agentready", sender, known)))
+        return
+    if not site_in_text and (team.find_repo(text) or team.wants_fix(text)):
+        # "fix it", or the GitHub repo sent after we asked for it: the Fixer takes over from here.
+        await ctx.send(sender, text_message(await team.start_fix("agentready", sender, known)))
+        return
 
     intent = await brain.understand(text)
+    if intent.action != "scan" and known.get("site") and team.refers_to_known_site(text):
+        # "scan my store again": the site was given to any of the three agents earlier.
+        intent = brain.Intent("scan", known["site"], known.get("task"))
     if intent.action == "scan" and not _allow(sender):
         await ctx.send(
             sender,
@@ -88,8 +115,16 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         )
         return
 
-    if intent.action != "scan" or not intent.url:
-        await ctx.send(sender, text_message(brain.HELP_TEXT))
+    if intent.action != "scan" or not intent.url or "github.com" in intent.url.lower():
+        if await team.first_in_a_while(sender, "help"):
+            await ctx.send(sender, text_message(brain.HELP_TEXT))
+        return
+    if (intent.url == known.get("site") and time.time() - known.get("scanned_at", 0) < RESCAN_S
+            and not team.refers_to_known_site(text)):
+        # The same site again within minutes, usually an echo of our own reply: don't rescan.
+        if await team.first_in_a_while(sender, "rescan"):
+            await ctx.send(sender, text_message(f"I scanned {intent.url} a few minutes ago. Say **scan it again** for a fresh scan, "
+                                                "**fix it** to have the Fixer fix it, or **status** to see where things are."))
         return
 
     # Two things at once: our scanner grades the site, and the Tester agent
@@ -98,11 +133,49 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         brain.reply_to(text, intent),
         ask_tester(ctx, intent.url, intent.shopping),
     )
-    if scan_id:
-        # Remembered per user so later steps (fixes, re-scan) know which scan
-        # "my site" refers to.
-        ctx.storage.set(f"last_scan:{sender}", scan_id)
-    await ctx.send(sender, text_message(combine(scan_reply, tester_reply)))
+    passed = tester_passed(tester_reply)
+    # Shared with the Tester and Fixer, so any of them knows which site and scan "my store" means.
+    known = await memory.update(
+        sender, site=intent.url, task=intent.shopping, scan_id=scan_id, scanned_at=time.time(),
+        scan=f"{intent.url} (scan {scan_id})" if scan_id else None,
+        shop=f"{passed}/5 steps on {intent.url}" if passed is not None else None,
+    )
+    await memory.remember(sender, "AgentReady", "agent", f"Scanned {intent.url}; shopping test {passed if passed is not None else '?'}/5")
+    if passed == 5:
+        handoff = None
+    elif team.wants_fix(text):  # "make mystore.com shopper ready": fix it straight away
+        handoff = await team.start_fix("agentready", sender, known, intent.shopping)
+    else:
+        handoff = await team.request_fix("agentready", sender, known, passed, intent.shopping) if passed is not None else None
+    await ctx.send(sender, text_message(combine(scan_reply, tester_reply, handoff)))
+
+
+async def verify_live(ctx: Context, task: dict):
+    """After the Fixer's pull request is merged: wait for the deploy, then have the Tester shop on the live site."""
+    user, site, shopping = task["user"], task["site"], task.get("task")
+    report, passed = None, None
+    for attempt in range(VERIFY_TRIES):
+        await asyncio.sleep(VERIFY_WAIT_S)
+        report = await ask_tester(ctx, site, shopping) or report
+        passed = tester_passed(report)
+        if passed == 5:
+            break
+        ctx.logger.info(f"Live check {attempt + 1}/{VERIFY_TRIES} on {site}: {passed}/5, waiting for the deploy")
+    if passed is not None:
+        await memory.update(user, shop=f"{passed}/5 steps on {site} (live, after the fix)",
+                            fix="fixed and live" if passed == 5 else "merged, live test still failing",
+                            fix_state="live" if passed == 5 else "failed")
+    head = (f"## ✅ {site} is fixed and live" if passed == 5
+            else f"## ⚠️ {site} after the merge: {passed if passed is not None else '?'}/5")
+    note = ("The Tester just shopped on the live site after the deploy:" if passed == 5 else
+            "The fix is merged, but the live site still fails the shopping test. The deploy may not have finished: "
+            "say **scan my store again** in a few minutes.")
+    await team.tell_user(ctx, "agentready", user, f"{head}\n\n{note}\n\n{report or 'The Tester did not answer.'}")
+
+
+def tester_passed(report: str | None) -> int | None:
+    m = re.search(r"(\d) / 5 steps", report or "")
+    return int(m.group(1)) if m else None
 
 
 async def ask_tester(ctx: Context, url: str, shopping: str | None) -> str | None:
@@ -128,15 +201,15 @@ async def ask_tester(ctx: Context, url: str, shopping: str | None) -> str | None
 
 
 FIXER_HINT = (
-    "\n\n---\n\n**Want it fixed?** The **AgentReady Fixer** agent can change your store's code for you and prove it "
-    "with the same shopping test. Send it your site and GitHub repo, e.g. `Fix mystore.com, code at github.com/you/your-store`."
+    "\n\n---\n\n**Want it fixed?** Reply **fix it** with your store's GitHub repo, e.g. `fix it, code at github.com/you/your-store`. "
+    "The AgentReady Fixer will change the code, test it and open a pull request, all from this chat."
 )
 
 
-def combine(scan_reply: str, tester_reply: str | None) -> str:
+def combine(scan_reply: str, tester_reply: str | None, handoff: str | None = None) -> str:
     if not tester_reply:
         return scan_reply + "\n\n_The shopping test by the AgentReady Tester agent didn't finish in time, so only the scan is shown._" + FIXER_HINT
-    hint = "" if "5 / 5 steps" in tester_reply else FIXER_HINT
+    hint = "\n\n---\n\n" + handoff if handoff else "" if "5 / 5 steps" in tester_reply else FIXER_HINT
     return (
         "# Part 1: AI readiness scan\n\n" + scan_reply
         + "\n\n---\n\n# Part 2: Can an AI agent actually buy here?\n"
@@ -169,6 +242,11 @@ def create_agent(mailbox: bool | None = None, port: int | None = None) -> Agent:
     # uses the platform default encoding, which breaks on ₹ and emoji on Windows.
     agent._readme = (Path(__file__).resolve().parents[1] / "profiles" / PROFILE_README).read_text(encoding="utf-8")
     agent.include(chat, publish_manifest=mailbox)
+
+    @agent.on_interval(period=3.0)
+    async def pick_up_team_tasks(ctx: Context):
+        await team.pump(ctx, "agentready", {"notify": team.deliver, "verify": verify_live})
+
     return agent
 
 

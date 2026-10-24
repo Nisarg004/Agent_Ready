@@ -43,9 +43,38 @@ class Stack:
     build: list[str] | None = None
     start: list[str] | None = None   # {port} is replaced
     notes: list[str] = field(default_factory=list)
+    root: str = ""       # sub-folder holding the store in a monorepo, e.g. "frontend"
+
+
+# Where the storefront usually lives in a repo that also holds a backend or several apps.
+APP_DIRS = ("frontend", "web", "client", "site", "storefront", "www", "app", "apps/web", "apps/storefront", "packages/web")
+
+
+def app_dir(ws: Path, stack: Stack) -> Path:
+    return ws / stack.root if stack.root else ws
 
 
 def detect(ws: Path) -> Stack:
+    """The store's stack, at the top of the repo or in the sub-folder that holds the site."""
+    stack = _detect_dir(ws)
+    if stack.kind != "unknown":
+        return stack
+    subdirs = [d for d in ws.iterdir() if d.is_dir() and d.name not in SKIP_DIRS and not d.name.startswith(".")]
+    subdirs += [d for parent in ("apps", "packages") if (ws / parent).is_dir() for d in (ws / parent).iterdir() if d.is_dir()]
+    deployed = lambda d: any((d / f).exists() for f in ("vercel.json", "netlify.toml", "render.yaml"))  # noqa: E731
+    named = lambda d: (d.relative_to(ws).as_posix() in APP_DIRS)  # noqa: E731
+    for d in sorted(subdirs, key=lambda d: (not deployed(d), not named(d), d.name)):
+        sub = _detect_dir(d)
+        if sub.kind == "unknown" or (sub.kind == "node-server" and not deployed(d) and not named(d)):
+            continue
+        sub.root = d.relative_to(ws).as_posix()
+        sub.label += f", in `{sub.root}/`"
+        sub.notes.append(f"The storefront is in `{sub.root}/` (the repo holds more than one app): make changes there.")
+        return sub
+    return stack
+
+
+def _detect_dir(ws: Path) -> Stack:
     pkg_path = ws / "package.json"
     if pkg_path.exists():
         pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
@@ -122,7 +151,7 @@ async def _run(cmd: list[str], cwd: Path, timeout: int, env: dict | None = None)
 
 async def install(ws: Path, stack: Stack) -> tuple[bool, str]:
     for cmd in stack.install:
-        code, out = await _run(cmd, ws, 600)
+        code, out = await _run(cmd, app_dir(ws, stack), 600)
         if code != 0:
             return False, out[-3000:]
     return True, ""
@@ -131,10 +160,10 @@ async def install(ws: Path, stack: Stack) -> tuple[bool, str]:
 async def build(ws: Path, stack: Stack) -> tuple[bool, str]:
     """Build the store. For Python stores, at least check every file compiles."""
     if stack.build:
-        code, out = await _run(stack.build, ws, 600, {"NODE_ENV": "production", "NEXT_TELEMETRY_DISABLED": "1"})
+        code, out = await _run(stack.build, app_dir(ws, stack), 600, {"NODE_ENV": "production", "NEXT_TELEMETRY_DISABLED": "1"})
         return code == 0, _tail_errors(out)
     if stack.kind in ("flask", "django"):
-        code, out = await _run([sys.executable, "-m", "compileall", "-q", "-x", r"[\\/]\.venv[\\/]", "."], ws, 120)
+        code, out = await _run([sys.executable, "-m", "compileall", "-q", "-x", r"[\\/]\.venv[\\/]", "."], app_dir(ws, stack), 120)
         return code == 0, out[-3000:]
     return True, ""
 
@@ -168,7 +197,7 @@ class Server:
         env.update({"PORT": str(self.port), "FLASK_DEBUG": "0", "NEXT_TELEMETRY_DISABLED": "1"})
         log = open(self.log_path, "w", encoding="utf-8")
         flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-        self.proc = subprocess.Popen(cmd, cwd=self.ws, stdout=log, stderr=subprocess.STDOUT, env=env,
+        self.proc = subprocess.Popen(cmd, cwd=app_dir(self.ws, self.stack), stdout=log, stderr=subprocess.STDOUT, env=env,
                                      creationflags=flags, start_new_session=os.name != "nt")
         async with httpx.AsyncClient(timeout=5) as c:
             for _ in range(90):

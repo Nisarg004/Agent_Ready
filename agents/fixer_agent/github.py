@@ -136,3 +136,15 @@ async def open_pr(repo: Repo, branch: str, title: str, body: str) -> str:
     if r.status_code >= 300:
         raise GitHubError(f"GitHub refused the pull request ({r.status_code}): {r.text[:300]}")
     return r.json()["html_url"]
+
+
+def pr_number(url: str) -> int | None:
+    m = re.search(r"/pull/(\d+)", url or "")
+    return int(m.group(1)) if m else None
+
+
+async def merge_pr(owner: str, name: str, number: int) -> None:
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.put(f"{API}/repos/{owner}/{name}/pulls/{number}/merge", headers=_headers(), json={"merge_method": "squash"})
+    if r.status_code >= 300:
+        raise GitHubError(f"GitHub refused the merge ({r.status_code}): {r.json().get('message', r.text[:200])}")

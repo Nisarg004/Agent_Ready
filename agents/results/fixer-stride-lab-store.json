@@ -1,0 +1,139 @@
+{
+ "before": {
+  "site": "http://127.0.0.1:63149",
+  "task": "running shoes under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": false,
+    "detail": "The page is almost empty without JavaScript (2 words). An AI agent sees a blank shell instead of a shop.",
+    "evidence": [
+     "Homepage: 2 words of readable text without JavaScript",
+     "robots.txt: not found"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": false,
+    "detail": "Could not find any products: no product links, sitemap, structured data or llms.txt were found.",
+    "evidence": [
+     "llms.txt: not found",
+     "sitemap.xml product URLs: 0",
+     "Listing pages read: 2 · product links found: 0",
+     "Products read: 0 (0 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": false,
+    "detail": "Skipped: nothing to compare.",
+    "evidence": []
+   },
+   {
+    "name": "Add to cart",
+    "passed": false,
+    "detail": "Skipped: no product was chosen.",
+    "evidence": []
+   },
+   {
+    "name": "Checkout link",
+    "passed": false,
+    "detail": "Skipped: there is no cart to check out.",
+    "evidence": []
+   }
+  ],
+  "chosen": null,
+  "compared": [],
+  "checkout_url": null,
+  "blocked_agents": [],
+  "seconds": 0.0,
+  "passed": 0,
+  "total": 5
+ },
+ "after": {
+  "site": "http://127.0.0.1:57529",
+  "task": "running shoes under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": true,
+    "detail": "The homepage loads and has readable content without JavaScript.",
+    "evidence": [
+     "Homepage: 209 words of readable text without JavaScript",
+     "robots.txt: not found"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": true,
+    "detail": "Found 2 products matching the task.",
+    "evidence": [
+     "llms.txt: found",
+     "sitemap.xml product URLs: 16",
+     "Listing pages read: 2 · product links found: 32",
+     "Products read: 16 (16 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": true,
+    "detail": "Compared Adidas Deerupt Runner (₹5,599) with Nike Free Run Flyknit (₹8,995); Adidas Deerupt Runner matches the request more closely.",
+    "evidence": [
+     "Data from structured data",
+     "Data from structured data"
+    ]
+   },
+   {
+    "name": "Add to cart",
+    "passed": true,
+    "detail": "Added Adidas Deerupt Runner to the cart using the site's add-to-cart link.",
+    "evidence": [
+     "Standard agent commerce manifest (/.well-known/ucp): not found",
+     "Followed the page's add-to-cart link: /buy/deerupt-runner-grey/ → HTTP 200",
+     "The page it landed on, /buy/deerupt-runner-grey/, is a cart showing the product"
+    ]
+   },
+   {
+    "name": "Checkout link",
+    "passed": true,
+    "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+    "evidence": [
+     "Opened /checkout/deerupt-runner-grey/ as the human would (fresh browser, no agent cookies) → /checkout/deerupt-runner-grey/"
+    ]
+   }
+  ],
+  "chosen": {
+   "name": "Adidas Deerupt Runner",
+   "price": 5599.0,
+   "url": "http://127.0.0.1:57529/products/deerupt-runner-grey/"
+  },
+  "compared": [
+   {
+    "name": "Adidas Deerupt Runner",
+    "price": 5599.0,
+    "url": "http://127.0.0.1:57529/products/deerupt-runner-grey/",
+    "source": "structured data"
+   },
+   {
+    "name": "Nike Free Run Flyknit",
+    "price": 8995.0,
+    "url": "http://127.0.0.1:57529/products/free-run-flyknit-crimson/",
+    "source": "structured data"
+   }
+  ],
+  "checkout_url": "http://127.0.0.1:57529/checkout/deerupt-runner-grey/",
+  "blocked_agents": [],
+  "seconds": 0.7,
+  "passed": 5,
+  "total": 5
+ },
+ "files": [
+  "package.json",
+  "src/App.tsx",
+  "src/pages/Checkout.tsx",
+  "scripts/"
+ ],
+ "summary": "The store was a Vite + React SPA that rendered nothing without JavaScript, so AI agents saw a blank page. All fixes are generated at build time from the store's own catalogue (`public/api/products.json`) — no data was copied by hand and no dependencies were added.\n\n- **Build script (`scripts/generate-static.mjs`)**: a Node script (no new dependencies) that runs after `vite build` (wired into the `build` npm script) and reads the catalogue JSON. It reuses the site's compiled stylesheet plus header/footer markup so generated pages match the store's design.\n- **Plain-HTML product pages**: one page per product at `/products/<handle>/` with the name in an `<h1>`, price as text (₹), description, image, stock status and an \"Add to cart\" link.\n- **Homepage and `/shop/` listing**: a plain HTML product list (name, price, link, stock) injected inside `<div id=\"root\">` of the built SPA shell, so agents read it and the React app replaces it when it boots — humans see no change.\n- **Machine-readable data**: Product JSON-LD (name, description, image, sku, url, offers with price/currency/availability, `<` escaped as `\\u003c`) on every product page, plus `/sitemap.xml` (homepage, shop, all product URLs) and `/llms.txt` (store summary, product list with prices, and a \"How to buy\" section).\n- **No-JS add to cart**: each product page links to `/buy/<handle>/`, a generated cart page (\"Your cart\", the item with quantity 1 and price) whose \"Checkout\" link goes to the shareable checkout page.\n- **Shareable checkout link**: `/checkout/<handle>/` is generated with the order summary in plain HTML and as an SPA shell, so the existing React checkout form takes over in the browser. `Checkout.tsx` now also fills the cart from the URL — `/checkout/<handle>` or `/checkout?items=<slug>:<qty>,…` — so a link opens with the same items on any device, no cookies. A `/checkout/:handle` route was added; nothing else in the app's behaviour changed.\n\nResult: the AI shopping Tester now passes 5/5 steps (previously 0/5). Note: `robots.txt` is still absent — the owner didn't select that fix, so it was left alone.",
+ "pr": "https://github.com/shubhtanna/stride-lab-store/pull/2",
+ "diff": "diff --git a/package.json b/package.json\nindex 2924ac9..08f65fc 100644\n--- a/package.json\n+++ b/package.json\n@@ -5,7 +5,7 @@\n   \"type\": \"module\",\n   \"scripts\": {\n     \"dev\": \"vite\",\n-    \"build\": \"tsc -b && vite build\",\n+    \"build\": \"tsc -b && vite build && node scripts/generate-static.mjs\",\n     \"lint\": \"oxlint\",\n     \"preview\": \"vite preview\"\n   },\ndiff --git a/scripts/generate-static.mjs b/scripts/generate-static.mjs\nnew file mode 100644\nindex 0000000..6685c1b\n--- /dev/null\n+++ b/scripts/generate-static.mjs\n@@ -0,0 +1,265 @@\n+// Build-time generator: turns the static catalogue into plain HTML pages that\n+// AI agents (and no-JS browsers) can read. Runs after `vite build` and writes\n+// into dist/. Reuses the site's compiled stylesheet and header/footer markup.\n+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'\n+import { join, dirname } from 'node:path'\n+import { fileURLToPath } from 'node:url'\n+\n+const root = dirname(dirname(fileURLToPath(import.meta.url)))\n+const dist = join(root, 'dist')\n+\n+const catalog = JSON.parse(readFileSync(join(root, 'public/api/products.json'), 'utf8'))\n+const products = catalog.products\n+\n+const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })\n+const money = (n) => inr.format(n)\n+const effectivePrice = (p) => p.salePrice ?? p.price\n+const inStock = (p) => p.sizes.some((s) => s.inStock)\n+const esc = (s) =>\n+  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;')\n+\n+// --- shared head/header/footer, mirroring index.html, Header.tsx, Footer.tsx ---\n+const builtIndex = readFileSync(join(dist, 'index.html'), 'utf8')\n+const headAssets = builtIndex\n+  .match(/<head>([\\s\\S]*?)<\\/head>/)[1]\n+  .replace(/<title>[\\s\\S]*?<\\/title>/, '')\n+  .replace(/<script type=\"module\"[^>]*><\\/script>/g, '')\n+  .trim()\n+\n+const header = (cartHref = '/shop/') => `\n+    <header class=\"sticky top-0 z-40\">\n+      <div class=\"bg-ink text-center text-xs font-medium tracking-wide text-white\">\n+        <p class=\"px-4 py-2\">Free shipping on orders over ${money(1999)} &middot; Easy 15-day returns</p>\n+      </div>\n+      <div class=\"border-b border-line bg-paper/95 backdrop-blur\">\n+        <div class=\"mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6\">\n+          <a href=\"/\" class=\"font-display text-2xl font-black uppercase italic\">Stride<span class=\"text-ink/40\">/</span>Lab</a>\n+          <nav class=\"ml-8 hidden gap-6 lg:flex\">\n+            <a href=\"/shop/\" class=\"text-sm font-semibold text-ink hover:text-ink/60\">Shop all</a>\n+            <a href=\"/shop/?category=running\" class=\"text-sm font-semibold text-ink hover:text-ink/60\">Running</a>\n+            <a href=\"/shop/?category=lifestyle\" class=\"text-sm font-semibold text-ink hover:text-ink/60\">Lifestyle</a>\n+            <a href=\"/shop/?category=basketball\" class=\"text-sm font-semibold text-ink hover:text-ink/60\">Basketball</a>\n+            <a href=\"/shop/?sale=1\" class=\"text-sm font-semibold text-sale\">Sale</a>\n+          </nav>\n+          <a href=\"${cartHref}\" class=\"ml-auto text-sm font-semibold\">Cart</a>\n+        </div>\n+      </div>\n+    </header>`\n+\n+const footer = () => `\n+    <footer class=\"mt-24 bg-ink text-white\">\n+      <div class=\"mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-4\">\n+        <div class=\"md:col-span-2\">\n+          <p class=\"font-display text-3xl font-black uppercase italic\">Stride/Lab</p>\n+          <p class=\"mt-3 max-w-sm text-sm text-white/60\">\n+            Running and sneaker store from Bengaluru. Authentic pairs from the brands you love, shipped across India.\n+          </p>\n+        </div>\n+        <div>\n+          <p class=\"text-xs font-semibold uppercase tracking-widest text-white/40\">Shop</p>\n+          <ul class=\"mt-4 space-y-2 text-sm\">\n+            <li><a href=\"/shop/?category=running\">Running</a></li>\n+            <li><a href=\"/shop/?category=lifestyle\">Lifestyle</a></li>\n+            <li><a href=\"/shop/?category=basketball\">Basketball</a></li>\n+            <li><a href=\"/shop/?sale=1\">Sale</a></li>\n+          </ul>\n+        </div>\n+        <div>\n+          <p class=\"text-xs font-semibold uppercase tracking-widest text-white/40\">Help</p>\n+          <ul class=\"mt-4 space-y-2 text-sm\">\n+            <li><a href=\"/help\">Shipping &amp; returns</a></li>\n+            <li><a href=\"/help#sizing\">Size guide</a></li>\n+            <li><a href=\"/about\">About us</a></li>\n+          </ul>\n+        </div>\n+      </div>\n+      <div class=\"border-t border-white/10\">\n+        <p class=\"mx-auto max-w-7xl px-4 py-6 text-xs text-white/40 sm:px-6\">\n+          &copy; ${new Date().getFullYear()} Stride Lab &middot; Bengaluru, India &middot; Demo store: no real orders or payments are processed.\n+        </p>\n+      </div>\n+    </footer>`\n+\n+const page = (title, body, extraHead = '', cartHref = '/shop/') => `<!doctype html>\n+<html lang=\"en\">\n+  <head>\n+    <meta charset=\"UTF-8\" />\n+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n+    ${headAssets}\n+    <title>${esc(title)}</title>\n+    ${extraHead}\n+  </head>\n+  <body>\n+${header(cartHref)}\n+    <main>\n+${body}\n+    </main>\n+${footer()}\n+  </body>\n+</html>`\n+\n+// --- plain-HTML product list, injected into the SPA shell for agents ---\n+const card = (p) => `        <li>\n+          <a href=\"/products/${p.handle}/\">\n+            <img src=\"${esc(p.image)}\" alt=\"${esc(`${p.brand} ${p.name}`)}\" width=\"450\" height=\"450\" class=\"aspect-square w-full rounded-2xl bg-white object-cover\" />\n+            <p class=\"mt-3 text-xs font-medium uppercase tracking-wide text-muted\">${esc(p.brand)} · ${esc(p.category)}</p>\n+            <h2 class=\"font-display text-lg font-bold leading-tight\">${esc(p.name)}</h2>\n+            <p class=\"text-sm text-muted\">${esc(p.colour)}</p>\n+            <p class=\"mt-1 font-semibold\">${money(effectivePrice(p))}</p>\n+            <p class=\"mt-1 text-xs text-muted\">${inStock(p) ? 'In stock' : 'Out of stock'}</p>\n+          </a>\n+        </li>`\n+\n+const productList = (heading) => `      <section class=\"mx-auto max-w-7xl px-4 py-12 sm:px-6\">\n+        <h1 class=\"font-display text-4xl font-black uppercase italic md:text-5xl\">${esc(heading)}</h1>\n+        <p class=\"mt-2 text-sm text-muted\">${products.length} products &middot; prices in INR</p>\n+        <ul class=\"mt-8 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3\">\n+${products.map(card).join('\\n')}\n+        </ul>\n+      </section>`\n+\n+// The React app clears #root when it boots, so humans see no change.\n+const spaPage = (title, rootHtml) =>\n+  builtIndex\n+    .replace(/<title>[\\s\\S]*?<\\/title>/, `<title>${esc(title)}</title>`)\n+    .replace(/<div id=\"root\"><\\/div>/, `<div id=\"root\">\\n${rootHtml}\\n      </div>`)\n+\n+// --- product page ---\n+const productLd = (p) => {\n+  const url = `/products/${p.handle}/`\n+  const ld = {\n+    '@context': 'https://schema.org',\n+    '@type': 'Product',\n+    name: `${p.brand} ${p.name}`,\n+    description: p.description,\n+    image: p.image,\n+    sku: p.id,\n+    url,\n+    offers: {\n+      '@type': 'Offer',\n+      price: effectivePrice(p),\n+      priceCurrency: 'INR',\n+      availability: inStock(p) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',\n+      url,\n+    },\n+    category: p.category,\n+  }\n+  return `    <script type=\"application/ld+json\">${JSON.stringify(ld).replace(/</g, '\\\\u003c')}</script>`\n+}\n+\n+const productBody = (p) => `      <div class=\"mx-auto max-w-7xl px-4 py-8 sm:px-6\">\n+        <div class=\"grid gap-10 md:grid-cols-2 lg:gap-16\">\n+          <div class=\"aspect-square overflow-hidden rounded-3xl bg-white\">\n+            <img src=\"${esc(p.image)}\" alt=\"${esc(`${p.brand} ${p.name} in ${p.colour}`)}\" class=\"h-full w-full object-cover\" />\n+          </div>\n+          <div>\n+            <p class=\"text-sm font-semibold uppercase tracking-widest text-muted\">${esc(p.brand)} · ${esc(p.category)}</p>\n+            <h1 class=\"font-display mt-1 text-4xl font-black uppercase italic md:text-5xl\">${esc(p.name)}</h1>\n+            <p class=\"mt-1 text-muted\">${esc(p.colour)}</p>\n+            <div class=\"mt-6 flex items-baseline gap-3\">\n+              <p class=\"text-2xl font-bold${p.salePrice ? ' text-sale' : ''}\">${money(effectivePrice(p))}</p>\n+              ${p.salePrice ? `<p class=\"text-muted line-through\">${money(p.price)}</p>` : ''}\n+            </div>\n+            <p class=\"text-xs text-muted\">MRP inclusive of all taxes</p>\n+            <p class=\"mt-4 text-sm font-semibold\">${inStock(p) ? 'In stock' : 'Out of stock'}</p>\n+            <p class=\"mt-6 text-sm leading-relaxed text-ink/80\">${esc(p.description)}</p>\n+            <ul class=\"mt-4 space-y-1.5 text-sm\">\n+              ${p.features.map((f) => `<li>${esc(f)}</li>`).join('\\n              ')}\n+            </ul>\n+            <p class=\"mt-4 text-xs text-muted\">Style code: ${esc(p.id)}</p>\n+            <a href=\"/buy/${p.handle}/\" class=\"mt-6 inline-block rounded-full bg-ink px-8 py-4 text-sm font-bold uppercase tracking-wide text-white hover:bg-ink/85\">Add to cart</a>\n+            <p class=\"mt-6 text-sm\"><a href=\"/shop/\" class=\"underline\">Continue shopping</a></p>\n+          </div>\n+        </div>\n+      </div>`\n+\n+// --- cart page (/buy/<slug>/) and checkout page (/checkout/<slug>/) ---\n+const cartBody = (p) => `      <div class=\"mx-auto max-w-xl px-4 py-16 sm:px-6\">\n+        <h1 class=\"font-display text-4xl font-black uppercase italic\">Your cart</h1>\n+        <ul class=\"mt-6 divide-y divide-line\">\n+          <li class=\"flex items-center justify-between gap-4 py-4\">\n+            <div>\n+              <p class=\"font-semibold\">${esc(`${p.brand} ${p.name}`)}</p>\n+              <p class=\"text-sm text-muted\">${esc(p.colour)} &middot; Quantity: 1</p>\n+            </div>\n+            <p class=\"font-semibold\">${money(effectivePrice(p))}</p>\n+          </li>\n+        </ul>\n+        <p class=\"mt-4 text-sm font-semibold\">Subtotal: ${money(effectivePrice(p))}</p>\n+        <a href=\"/checkout/${p.handle}/\" class=\"mt-8 inline-block rounded-full bg-ink px-8 py-4 text-sm font-bold uppercase tracking-wide text-white hover:bg-ink/85\">Checkout</a>\n+        <p class=\"mt-4 text-sm\"><a href=\"/products/${p.handle}/\" class=\"underline\">Back to ${esc(p.name)}</a></p>\n+      </div>`\n+\n+const checkoutBody = (p) => `      <div class=\"mx-auto max-w-xl px-4 py-16 sm:px-6\">\n+        <h1 class=\"font-display text-4xl font-black uppercase italic\">Checkout</h1>\n+        <h2 class=\"mt-8 font-semibold\">Order summary</h2>\n+        <ul class=\"mt-4 divide-y divide-line\">\n+          <li class=\"flex items-center justify-between gap-4 py-4\">\n+            <div>\n+              <p class=\"font-semibold\">${esc(`${p.brand} ${p.name}`)}</p>\n+              <p class=\"text-sm text-muted\">${esc(p.colour)} &middot; Quantity: 1</p>\n+            </div>\n+            <p class=\"font-semibold\">${money(effectivePrice(p))}</p>\n+          </li>\n+        </ul>\n+        <dl class=\"mt-4 space-y-2 border-t border-line pt-4 text-sm\">\n+          <div class=\"flex justify-between\"><dt>Subtotal</dt><dd>${money(effectivePrice(p))}</dd></div>\n+          <div class=\"flex justify-between border-t border-line pt-3 text-base font-bold\"><dt>Total</dt><dd>${money(effectivePrice(p))}</dd></div>\n+        </dl>\n+        <p class=\"mt-6 text-sm text-muted\">The checkout form (contact, delivery address and payment) loads on this page.</p>\n+      </div>`\n+\n+// --- write everything ---\n+for (const dir of ['products', 'buy', 'checkout', 'shop']) {\n+  rmSync(join(dist, dir), { recursive: true, force: true })\n+}\n+\n+writeFileSync(join(dist, 'index.html'), spaPage('Stride Lab – Sneakers & Running Shoes Online in India', productList('All shoes')))\n+\n+mkdirSync(join(dist, 'shop'), { recursive: true })\n+writeFileSync(join(dist, 'shop', 'index.html'), spaPage('Shop all | Stride Lab', productList('All shoes')))\n+\n+for (const p of products) {\n+  const productDir = join(dist, 'products', p.handle)\n+  mkdirSync(productDir, { recursive: true })\n+  writeFileSync(\n+    join(productDir, 'index.html'),\n+    page(`${p.brand} ${p.name} – ${p.colour} | Stride Lab`, productBody(p), productLd(p)),\n+  )\n+\n+  const buyDir = join(dist, 'buy', p.handle)\n+  mkdirSync(buyDir, { recursive: true })\n+  writeFileSync(join(buyDir, 'index.html'), page(`Your cart | Stride Lab`, cartBody(p), '', `/buy/${p.handle}/`))\n+\n+  const checkoutDir = join(dist, 'checkout', p.handle)\n+  mkdirSync(checkoutDir, { recursive: true })\n+  writeFileSync(join(checkoutDir, 'index.html'), spaPage(`Checkout | Stride Lab`, checkoutBody(p)))\n+}\n+\n+const sitemapUrls = ['/', '/shop/', ...products.map((p) => `/products/${p.handle}/`)]\n+writeFileSync(\n+  join(dist, 'sitemap.xml'),\n+  `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\\n${sitemapUrls\n+    .map((u) => `  <url><loc>${u}</loc></url>`)\n+    .join('\\n')}\\n</urlset>\\n`,\n+)\n+\n+writeFileSync(\n+  join(dist, 'llms.txt'),\n+  `# Stride Lab\n+\n+Stride Lab is a sneaker and running-shoe store from Bengaluru, India, selling authentic pairs from brands like Nike and Adidas, shipped across India. Prices are in INR.\n+\n+## Products\n+\n+${products.map((p) => `- [${p.brand} ${p.name}](${`/products/${p.handle}/`}): ${money(effectivePrice(p))}`).join('\\n')}\n+\n+## How to buy\n+\n+- Browse the full catalogue at \\`/shop/\\` or open any product page listed above; each page shows the price, description, image and stock status.\n+- To buy a shoe, follow its \"Add to cart\" link, which is \\`/buy/<slug>/\\` (for example \\`/buy/${products[0].handle}/\\`). That cart page holds the item with quantity 1.\n+- From the cart page, follow the \"Checkout\" link, which is \\`/checkout/<slug>/\\`. That link is shareable: it opens the same order summary on any device without cookies, and the checkout form on that page completes the order.\n+`,\n+)\n+\n+console.log(`generate-static: ${products.length} product pages, ${products.length} cart pages, ${products.length} checkout pages, sitemap.xml, llms.txt, homepage + /shop/ lists`)\ndiff --git a/src/App.tsx b/src/App.tsx\nindex a87a484..a0a2080 100644\n--- a/src/App.tsx\n+++ b/src/App.tsx\n@@ -28,6 +28,7 @@ export default function App() {\n           <Route path=\"/shop\" element={<Shop />} />\n           <Route path=\"/products/:handle\" element={<ProductPage />} />\n           <Route path=\"/checkout\" element={<Checkout />} />\n+          <Route path=\"/checkout/:handle\" element={<Checkout />} />\n           <Route path=\"/order/:orderId\" element={<OrderConfirmed />} />\n           <Route path=\"/about\" element={<About />} />\n           <Route path=\"/help\" element={<Help />} />\ndiff --git a/src/pages/Checkout.tsx b/src/pages/Checkout.tsx\nindex be481e9..101fd59 100644\n--- a/src/pages/Checkout.tsx\n+++ b/src/pages/Checkout.tsx\n@@ -1,8 +1,9 @@\n-import { useState } from 'react'\n-import { Link, useNavigate } from 'react-router-dom'\n+import { useEffect, useState } from 'react'\n+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'\n import { Lock } from 'lucide-react'\n import { useCart } from '../context/CartContext'\n import { useTitle } from '../hooks/useCatalog'\n+import { getProduct } from '../lib/api'\n import { formatPrice } from '../lib/format'\n \n type Form = { email: string; phone: string; name: string; address: string; city: string; state: string; pincode: string }\n@@ -10,12 +11,58 @@ const EMPTY: Form = { email: '', phone: '', name: '', address: '', city: '', sta\n \n export default function Checkout() {\n   useTitle('Checkout')\n-  const { items, subtotal, shipping, total, clear } = useCart()\n+  const { items, subtotal, shipping, total, clear, add } = useCart()\n   const [form, setForm] = useState<Form>(EMPTY)\n   const [payment, setPayment] = useState<'upi' | 'card' | 'cod'>('upi')\n   const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({})\n   const [placing, setPlacing] = useState(false)\n   const navigate = useNavigate()\n+  const { handle } = useParams()\n+  const [params] = useSearchParams()\n+\n+  // A shareable checkout link carries the order in the URL, so it opens the\n+  // same items on any device with no cookies: /checkout/<slug> (one item) or\n+  // /checkout?items=<slug>:<qty>,<slug>:<qty>.\n+  useEffect(() => {\n+    const wanted: { handle: string; qty: number }[] = []\n+    if (handle) wanted.push({ handle, qty: 1 })\n+    const itemsParam = params.get('items')\n+    if (itemsParam) {\n+      for (const part of itemsParam.split(',')) {\n+        const [slug, qty] = part.split(':')\n+        if (slug) wanted.push({ handle: slug, qty: Math.max(1, Math.min(Number(qty) || 1, 5)) })\n+      }\n+    }\n+    if (wanted.length === 0) return\n+    let alive = true\n+    Promise.all(wanted.map((w) => getProduct(w.handle).then((p) => p && { p, qty: w.qty })))\n+      .then((found) => {\n+        if (!alive) return\n+        clear()\n+        for (const f of found) {\n+          if (!f) continue\n+          const size = f.p.sizes.find((s) => s.inStock)?.uk ?? f.p.sizes[0]?.uk\n+          if (size == null) continue\n+          add(\n+            {\n+              productId: f.p.id,\n+              handle: f.p.handle,\n+              name: f.p.name,\n+              brand: f.p.brand,\n+              image: f.p.image,\n+              size,\n+              unitPrice: f.p.salePrice ?? f.p.price,\n+            },\n+            f.qty,\n+          )\n+        }\n+      })\n+      .catch(() => {})\n+    return () => {\n+      alive = false\n+    }\n+    // eslint-disable-next-line react-hooks/exhaustive-deps\n+  }, [handle, params])\n \n   if (items.length === 0) {\n     return (\n"
+}

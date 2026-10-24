@@ -32,14 +32,13 @@ from uagents_core.contrib.protocols.chat import (  # noqa: E402
     chat_protocol_spec,
 )
 
+from shared import memory, sites, team  # noqa: E402
 from tester_agent.shopper import format_report, run  # noqa: E402
 
 TESTS_PER_HOUR = int(os.getenv("TESTER_RUNS_PER_USER_PER_HOUR", "25"))
 # Our own AgentReady agent applies its own per-user limit, so it isn't limited here.
 TRUSTED = {a.strip() for a in os.getenv("TESTER_TRUSTED_AGENTS", "").split(",") if a.strip()}
 _recent: dict[str, deque[float]] = defaultdict(deque)
-
-URL_RE = re.compile(r"(https?://[^\s<>\"']+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>\"']*)?)", re.I)
 
 HELP = (
     "I'm the **AgentReady Tester**. I check whether an AI shopping agent can actually buy from a website: "
@@ -64,7 +63,7 @@ def _allow(sender: str) -> bool:
 
 def split_request(text: str) -> tuple[str | None, str]:
     """Pull the website out of the message; the rest is the shopping task."""
-    m = URL_RE.search(text)
+    m = sites.find_site_match(text)
     if not m:
         return None, text
     site = m.group(1).rstrip(".,;:!?)")
@@ -91,9 +90,21 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     text = " ".join(i.text for i in msg.content if isinstance(i, TextContent)).strip()
     if not text:
         return
+    # Our own agents ask on behalf of a user and record it themselves; a person's chat is shared with the team.
+    internal = sender in TRUSTED
+    if not internal and team.is_chatter(text):
+        ctx.logger.info(f"Ignoring long message from {sender[:16]}… ({len(text)} chars)")
+        return
+    known = {} if internal else await team.learn(sender, "tester", text)
+    if not internal and team.wants_status(text):
+        await ctx.send(sender, reply(await memory.summary(sender)))
+        return
     site, task = split_request(text)
+    if not site and known.get("site") and team.refers_to_known_site(text):
+        site = known["site"]
     if not site:
-        await ctx.send(sender, reply(HELP))
+        if internal or await team.first_in_a_while(sender, "help"):
+            await ctx.send(sender, reply(HELP))
         return
     if not _allow(sender):
         await ctx.send(sender, reply(f"You've run {TESTS_PER_HOUR} tests in the last hour. Please try again later."))
@@ -101,7 +112,14 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     ctx.logger.info(f"Testing {site} for {sender[:16]}…: {task!r}")
     try:
         report = await run(site, task)
-        await ctx.send(sender, reply(format_report(report)))
+        text_out = format_report(report)
+        if not internal:
+            known = await memory.update(sender, site=site, task=task, shop=f"{report.passed}/5 steps on {site}")
+            await memory.remember(sender, "Tester", "agent", f"Shopping test on {site}: {report.passed}/5")
+            handoff = await team.request_fix("tester", sender, known, report.passed, task)
+            if handoff:
+                text_out += "\n\n---\n\n" + handoff
+        await ctx.send(sender, reply(text_out))
     except Exception as err:  # never leave the user without an answer
         ctx.logger.exception("Tester run failed")
         await ctx.send(sender, reply(f"Sorry, the test on {site} failed unexpectedly ({type(err).__name__}). Please try again."))
@@ -129,6 +147,11 @@ def create_agent(mailbox: bool | None = None, port: int | None = None) -> Agent:
     # uses the platform default encoding, which breaks on ₹ and emoji on Windows.
     agent._readme = (Path(__file__).resolve().parents[1] / "profiles" / PROFILE_README).read_text(encoding="utf-8")
     agent.include(chat, publish_manifest=mailbox)
+
+    @agent.on_interval(period=3.0)
+    async def pick_up_team_tasks(ctx: Context):
+        await team.pump(ctx, "tester", {"notify": team.deliver})
+
     return agent
 
 

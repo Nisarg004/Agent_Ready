@@ -1,0 +1,170 @@
+{
+ "before": {
+  "site": "http://127.0.0.1:61177",
+  "task": "a dining chair under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": true,
+    "detail": "The homepage loads and has readable content without JavaScript.",
+    "evidence": [
+     "Homepage: 246 words of readable text without JavaScript",
+     "robots.txt: not found"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": true,
+    "detail": "Found 2 products matching the task.",
+    "evidence": [
+     "llms.txt: not found",
+     "sitemap.xml product URLs: 0",
+     "Listing pages read: 8 · product links found: 26",
+     "Products read: 26 (0 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": true,
+    "detail": "Compared Linen Upholstered Dining Chair (₹7,900) with Nordic Dining Chair (Set of 2) (₹8,900); both fit equally, so it chose the cheaper one.",
+    "evidence": [
+     "Data from page text",
+     "Data from page text"
+    ]
+   },
+   {
+    "name": "Add to cart",
+    "passed": true,
+    "detail": "Added Linen Upholstered Dining Chair to the cart using the site's own form.",
+    "evidence": [
+     "Standard agent commerce manifest (/.well-known/ucp): not found",
+     "Submitted the page's own form: POST /products/linen-dining-chair → HTTP 200",
+     "The page it landed on, /cart, is a cart showing the product"
+    ]
+   },
+   {
+    "name": "Checkout link",
+    "passed": false,
+    "detail": "The cart only exists inside the agent's own session (a cookie or browser storage), so the checkout link opens an empty cart for the human.",
+    "evidence": [
+     "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+    ]
+   }
+  ],
+  "chosen": {
+   "name": "Linen Upholstered Dining Chair",
+   "price": 7900.0,
+   "url": "http://127.0.0.1:61177/products/linen-dining-chair"
+  },
+  "compared": [
+   {
+    "name": "Linen Upholstered Dining Chair",
+    "price": 7900.0,
+    "url": "http://127.0.0.1:61177/products/linen-dining-chair",
+    "source": "page text"
+   },
+   {
+    "name": "Nordic Dining Chair (Set of 2)",
+    "price": 8900.0,
+    "url": "http://127.0.0.1:61177/products/nordic-dining-chair",
+    "source": "page text"
+   }
+  ],
+  "checkout_url": null,
+  "blocked_agents": [],
+  "seconds": 2.4,
+  "passed": 4,
+  "total": 5
+ },
+ "after": {
+  "site": "http://127.0.0.1:53526",
+  "task": "a dining chair under ₹10,000",
+  "steps": [
+   {
+    "name": "Reach the site",
+    "passed": true,
+    "detail": "The homepage loads and has readable content without JavaScript.",
+    "evidence": [
+     "Homepage: 246 words of readable text without JavaScript",
+     "robots.txt: not found"
+    ]
+   },
+   {
+    "name": "Find products",
+    "passed": true,
+    "detail": "Found 2 products matching the task.",
+    "evidence": [
+     "llms.txt: found",
+     "sitemap.xml product URLs: 26",
+     "Listing pages read: 8 · product links found: 26",
+     "Products read: 26 (26 from structured data)"
+    ]
+   },
+   {
+    "name": "Compare options",
+    "passed": true,
+    "detail": "Compared Linen Upholstered Dining Chair (₹7,900) with Nordic Dining Chair (Set of 2) (₹8,900); both fit equally, so it chose the cheaper one.",
+    "evidence": [
+     "Data from structured data",
+     "Data from structured data"
+    ]
+   },
+   {
+    "name": "Add to cart",
+    "passed": true,
+    "detail": "Added Linen Upholstered Dining Chair to the cart using the site's own form.",
+    "evidence": [
+     "Standard agent commerce manifest (/.well-known/ucp): not found",
+     "Submitted the page's own form: POST /products/linen-dining-chair → HTTP 200",
+     "The page it landed on, /cart, is a cart showing the product"
+    ]
+   },
+   {
+    "name": "Checkout link",
+    "passed": true,
+    "detail": "Produced a checkout link that opens with the chosen product already in the cart.",
+    "evidence": [
+     "Opened /checkout as the human would (fresh browser, no agent cookies) → /checkout"
+    ]
+   }
+  ],
+  "chosen": {
+   "name": "Linen Upholstered Dining Chair",
+   "price": 7900.0,
+   "url": "http://127.0.0.1:53526/products/linen-dining-chair"
+  },
+  "compared": [
+   {
+    "name": "Linen Upholstered Dining Chair",
+    "price": 7900.0,
+    "url": "http://127.0.0.1:53526/products/linen-dining-chair",
+    "source": "structured data"
+   },
+   {
+    "name": "Nordic Dining Chair (Set of 2)",
+    "price": 8900.0,
+    "url": "http://127.0.0.1:53526/products/nordic-dining-chair",
+    "source": "structured data"
+   }
+  ],
+  "checkout_url": "http://127.0.0.1:53526/checkout?items=NG2416:1",
+  "blocked_agents": [],
+  "seconds": 2.2,
+  "passed": 5,
+  "total": 5
+ },
+ "files": [
+  "src/app/actions.ts",
+  "src/app/cart/page.tsx",
+  "src/app/checkout/page.tsx",
+  "src/app/products/[slug]/page.tsx",
+  "src/components/CheckoutForm.tsx",
+  "src/lib/cart.ts",
+  "src/app/llms.txt/",
+  "src/app/sitemap.xml/",
+  "src/lib/site.ts"
+ ],
+ "summary": "All selected fixes are in, and the Tester now reports 5/5 steps passing.\n\n- **JSON-LD on product pages** (`src/app/products/[slug]/page.tsx`): each product page now embeds a `<script type=\"application/ld+json\">` Product object with name, description, image, sku, url and an Offer (price, priceCurrency: INR, availability InStock/OutOfStock, url), built from the live catalogue. The Tester now reads all 26 products from structured data.\n- **`/sitemap.xml`** (new route handler `src/app/sitemap.xml/route.ts`): lists the homepage, every room listing page and every product page, generated from the catalogue. Absolute URLs are built from the incoming request (`src/lib/site.ts` helper) — no hard-coded domain.\n- **`/llms.txt`** (new route handler `src/app/llms.txt/route.ts`): Markdown with the store name, a one-line summary, a `## Products` list of `- [Name](url): ₹price` lines, and a `## How to buy` section explaining the add-to-cart form and the shareable checkout link.\n- **Shareable checkout link**: the cart page's \"Continue to checkout\" link now carries the cart as `/checkout?items=<id>:<qty>,…` (ids and quantities only, never prices). The checkout page rebuilds the order from that parameter — unknown ids ignored, quantities clamped to the cart's 1–10 limit, out-of-stock skipped — and renders the order summary with product names in plain HTML. The normal cookie-based checkout still works when there is no `items` parameter.\n- **Order placement from a link**: the checkout form passes the `items` parameter through as a hidden field, and the `placeOrder` server action rebuilds the cart from it (validated against the catalogue) so an order can be placed from a fresh browser with no cookies. Checkout is already guest checkout (no login wall), so no sign-in step was needed.\n\nNo dependencies added, no prices/products/design changed, and no security was weakened — the server action still validates all input and the items parameter is only ever resolved against the real catalogue.",
+ "pr": "https://github.com/shubhtanna/nest-and-grain-store/pull/1",
+ "diff": "diff --git a/src/app/actions.ts b/src/app/actions.ts\nindex b5d94c3..0df9737 100644\n--- a/src/app/actions.ts\n+++ b/src/app/actions.ts\n@@ -3,7 +3,7 @@\n import { cookies } from 'next/headers'\n import { redirect } from 'next/navigation'\n import { refresh } from 'next/cache'\n-import { readCart, writeCart, cartSummary } from '@/lib/cart'\n+import { readCart, writeCart, cartSummary, summaryForLines, itemsParamToCart } from '@/lib/cart'\n import { getProductById } from '@/lib/store'\n \n export async function addToCart(formData: FormData) {\n@@ -61,7 +61,10 @@ export async function placeOrder(_prev: CheckoutState, formData: FormData): Prom\n   if (!/^\\d{6}$/.test(f.pincode)) errors.pincode = 'Please enter a 6-digit PIN code'\n   if (Object.keys(errors).length) return { errors }\n \n-  const cart = await cartSummary()\n+  // A shareable checkout link (?items=…) carries the order in the URL; rebuild it\n+  // from there (validated against the catalogue) instead of the cookie cart.\n+  const itemsParam = String(formData.get('items') ?? '')\n+  const cart = itemsParam ? summaryForLines(itemsParamToCart(itemsParam)) : await cartSummary()\n   if (cart.count === 0) return { message: 'Your cart is empty.' }\n \n   const orderId = `NG-${Date.now().toString(36).toUpperCase()}`\ndiff --git a/src/app/cart/page.tsx b/src/app/cart/page.tsx\nindex 4fbe912..c91740d 100644\n--- a/src/app/cart/page.tsx\n+++ b/src/app/cart/page.tsx\n@@ -3,7 +3,7 @@ import Image from 'next/image'\n import Link from 'next/link'\n import { Suspense } from 'react'\n import { removeLine, updateQty } from '@/app/actions'\n-import { cartSummary } from '@/lib/cart'\n+import { cartSummary, cartToItemsParam } from '@/lib/cart'\n import { FREE_DELIVERY_FROM, formatPrice } from '@/lib/store'\n \n export const metadata: Metadata = { title: 'Your cart' }\n@@ -81,7 +81,7 @@ async function CartContents() {\n           <div className=\"flex justify-between border-t border-rule pt-3 text-base font-medium\"><dt>Total</dt><dd>{formatPrice(cart.total)}</dd></div>\n         </dl>\n         {toFree > 0 && <p className=\"mt-3 text-xs text-stone\">Add {formatPrice(toFree)} more for free delivery and installation.</p>}\n-        <Link href=\"/checkout\" className=\"mt-6 block rounded-full bg-bark py-4 text-center text-sm font-medium text-white\">\n+        <Link href={`/checkout?items=${cartToItemsParam(cart.items)}`} className=\"mt-6 block rounded-full bg-bark py-4 text-center text-sm font-medium text-white\">\n           Continue to checkout\n         </Link>\n       </aside>\ndiff --git a/src/app/checkout/page.tsx b/src/app/checkout/page.tsx\nindex 0b5634c..611312d 100644\n--- a/src/app/checkout/page.tsx\n+++ b/src/app/checkout/page.tsx\n@@ -2,24 +2,29 @@ import type { Metadata } from 'next'\n import Link from 'next/link'\n import { Suspense } from 'react'\n import CheckoutForm from '@/components/CheckoutForm'\n-import { cartSummary } from '@/lib/cart'\n+import { cartSummary, itemsParamToCart, summaryForLines } from '@/lib/cart'\n import { formatPrice } from '@/lib/store'\n \n export const metadata: Metadata = { title: 'Checkout' }\n \n-export default function CheckoutPage() {\n+export default function CheckoutPage({ searchParams }: { searchParams: Promise<{ items?: string }> }) {\n   return (\n     <div className=\"mx-auto max-w-6xl px-4 py-12 sm:px-6\">\n       <h1 className=\"font-serif text-5xl\">Checkout</h1>\n       <Suspense fallback={<p className=\"mt-10 text-stone\">Loading…</p>}>\n-        <Checkout />\n+        <Checkout searchParams={searchParams} />\n       </Suspense>\n     </div>\n   )\n }\n \n-async function Checkout() {\n-  const cart = await cartSummary()\n+async function Checkout({ searchParams }: { searchParams: Promise<{ items?: string }> }) {\n+  const { items: itemsParam } = await searchParams\n+  // A shareable checkout link (?items=<id>:<qty>,…) rebuilds the order from the URL,\n+  // so it opens the same items on any device with no cookies. Unknown ids are\n+  // ignored and quantities are clamped to stock limits.\n+  const cart = itemsParam ? summaryForLines(itemsParamToCart(itemsParam)) : await cartSummary()\n+\n   if (cart.count === 0) {\n     return (\n       <p className=\"mt-10 text-stone\">\n@@ -29,7 +34,7 @@ async function Checkout() {\n   }\n   return (\n     <div className=\"mt-10 grid gap-10 lg:grid-cols-[1fr_340px]\">\n-      <CheckoutForm total={formatPrice(cart.total)} />\n+      <CheckoutForm total={formatPrice(cart.total)} itemsParam={itemsParam ?? null} />\n       <aside className=\"h-fit rounded-lg bg-sand p-6\">\n         <h2 className=\"font-serif text-xl\">In your order</h2>\n         <ul className=\"mt-4 space-y-3 text-sm\">\ndiff --git a/src/app/llms.txt/route.ts b/src/app/llms.txt/route.ts\nnew file mode 100644\nindex 0000000..9f1d12f\n--- /dev/null\n+++ b/src/app/llms.txt/route.ts\n@@ -0,0 +1,26 @@\n+import { getAllProducts, formatPrice } from '@/lib/store'\n+import { getBaseUrl } from '@/lib/site'\n+\n+export async function GET(request: Request) {\n+  const base = getBaseUrl(request)\n+  const lines = [\n+    '# Nest & Grain',\n+    '',\n+    'Considered furniture and home decor, made in India — sofas, beds, dining, lighting and decor, delivered and installed across 40 cities.',\n+    '',\n+    '## Products',\n+    '',\n+    ...getAllProducts().map(\n+      (p) => `- [${p.name}](${base}/products/${p.slug}): ${formatPrice(p.price)}`,\n+    ),\n+    '',\n+    '## How to buy',\n+    '',\n+    '1. Open a product page and submit its \"Add to cart\" form (a normal HTML form POST) to add the item to your cart.',\n+    '2. Go to the cart page to review items and quantities.',\n+    '3. Continue to checkout: the cart page links to a checkout URL that carries the items with it, e.g. `/checkout?items=<id>:<qty>,<id>:<qty>` — that link opens the same order on any device, no cookies needed.',\n+    '4. On the checkout page, fill in the delivery details form and place the order. No account or sign-in is required.',\n+    '',\n+  ]\n+  return new Response(lines.join('\\n'), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })\n+}\ndiff --git a/src/app/products/[slug]/page.tsx b/src/app/products/[slug]/page.tsx\nindex 42eeb6f..91cd722 100644\n--- a/src/app/products/[slug]/page.tsx\n+++ b/src/app/products/[slug]/page.tsx\n@@ -7,6 +7,7 @@ import AddToCart from '@/components/AddToCart'\n import PincodeCheck from '@/components/PincodeCheck'\n import ProductCard from '@/components/ProductCard'\n import { STOCK_LABEL, formatPrice, getAllProducts, getProduct, getProductsInRoom, getRoom } from '@/lib/store'\n+import { getBaseUrl } from '@/lib/site'\n \n export function generateStaticParams() {\n   return getAllProducts().map((p) => ({ slug: p.slug }))\n@@ -27,9 +28,28 @@ export default async function ProductPage({ params }: PageProps<'/products/[slug\n   if (!p) notFound()\n   const room = getRoom(p.room)!\n   const related = getProductsInRoom(p.room).filter((x) => x.id !== p.id).slice(0, 4)\n+  const productUrl = `/products/${p.slug}`\n+  const jsonLd = {\n+    '@context': 'https://schema.org',\n+    '@type': 'Product',\n+    name: p.name,\n+    description: p.description,\n+    image: [`${p.image}?w=1200&q=75&auto=format&fit=crop`],\n+    sku: p.id,\n+    url: productUrl,\n+    offers: {\n+      '@type': 'Offer',\n+      price: p.price,\n+      priceCurrency: 'INR',\n+      availability: p.stock === 'out_of_stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',\n+      url: productUrl,\n+    },\n+  }\n \n   return (\n     <div className=\"mx-auto max-w-7xl px-4 py-8 sm:px-6\">\n+      <script type=\"application/ld+json\" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />\n+\n       <nav className=\"mb-6 flex items-center gap-1 text-xs text-stone\">\n         <Link href=\"/\">Home</Link>\n         <ChevronRight size={12} />\ndiff --git a/src/app/sitemap.xml/route.ts b/src/app/sitemap.xml/route.ts\nnew file mode 100644\nindex 0000000..ce90f20\n--- /dev/null\n+++ b/src/app/sitemap.xml/route.ts\n@@ -0,0 +1,17 @@\n+import { getAllProducts, getRooms } from '@/lib/store'\n+import { getBaseUrl } from '@/lib/site'\n+\n+export async function GET(request: Request) {\n+  const base = getBaseUrl(request)\n+  const paths = [\n+    '/',\n+    ...getRooms().map((r) => `/rooms/${r.slug}`),\n+    ...getAllProducts().map((p) => `/products/${p.slug}`),\n+  ]\n+  const body =\n+    `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n` +\n+    `<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\\n` +\n+    paths.map((path) => `  <url><loc>${base}${path}</loc></url>`).join('\\n') +\n+    `\\n</urlset>\\n`\n+  return new Response(body, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } })\n+}\ndiff --git a/src/components/CheckoutForm.tsx b/src/components/CheckoutForm.tsx\nindex 2fe33c7..1d686f3 100644\n--- a/src/components/CheckoutForm.tsx\n+++ b/src/components/CheckoutForm.tsx\n@@ -5,7 +5,7 @@ import { placeOrder, type CheckoutState } from '@/app/actions'\n \n const SLOTS = ['Weekday morning (9–1)', 'Weekday afternoon (1–6)', 'Saturday', 'Sunday']\n \n-export default function CheckoutForm({ total }: { total: string }) {\n+export default function CheckoutForm({ total, itemsParam }: { total: string; itemsParam: string | null }) {\n   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, {})\n   const err = state.errors ?? {}\n \n@@ -23,6 +23,7 @@ export default function CheckoutForm({ total }: { total: string }) {\n \n   return (\n     <form action={action} className=\"space-y-8\">\n+      {itemsParam && <input type=\"hidden\" name=\"items\" value={itemsParam} />}\n       <section>\n         <h2 className=\"font-serif text-xl\">Contact</h2>\n         <div className=\"mt-4 grid gap-4 sm:grid-cols-2\">\ndiff --git a/src/lib/cart.ts b/src/lib/cart.ts\nindex 6b4c460..958a9f9 100644\n--- a/src/lib/cart.ts\n+++ b/src/lib/cart.ts\n@@ -1,6 +1,6 @@\n import { cookies } from 'next/headers'\n import type { CartLine } from '@/data/types'\n-import { DELIVERY_FEE, FREE_DELIVERY_FROM, getProductById } from './store'\n+import { DELIVERY_FEE, FREE_DELIVERY_FROM, getProduct, getProductById } from './store'\n \n export const CART_COOKIE = 'ng_cart'\n \n@@ -24,8 +24,7 @@ export async function writeCart(lines: CartLine[]) {\n   })\n }\n \n-export async function cartSummary() {\n-  const lines = await readCart()\n+export function summaryForLines(lines: CartLine[]) {\n   const items = lines.map((l) => {\n     const product = getProductById(l.id)!\n     return { ...l, product, lineTotal: product.price * l.qty }\n@@ -34,3 +33,29 @@ export async function cartSummary() {\n   const delivery = subtotal === 0 || subtotal >= FREE_DELIVERY_FROM ? 0 : DELIVERY_FEE\n   return { items, count: items.reduce((s, i) => s + i.qty, 0), subtotal, delivery, total: subtotal + delivery }\n }\n+\n+export async function cartSummary() {\n+  return summaryForLines(await readCart())\n+}\n+\n+// Serialises cart lines for a shareable checkout link: /checkout?items=<id>:<qty>,<id>:<qty>.\n+// Carries product ids and quantities only — never prices.\n+export function cartToItemsParam(lines: CartLine[]): string {\n+  return lines.map((l) => `${l.id}:${l.qty}`).join(',')\n+}\n+\n+// Rebuilds cart lines from an ?items=… parameter. Unknown ids are ignored and\n+// quantities are clamped to 1–10, matching the cart's own limits.\n+export function itemsParamToCart(raw: string | undefined): CartLine[] {\n+  if (!raw) return []\n+  const lines: CartLine[] = []\n+  for (const part of raw.split(',')) {\n+    const [id, qtyRaw] = part.split(':')\n+    const product = getProductById(id) ?? getProduct(id)\n+    if (!product || product.stock === 'out_of_stock') continue\n+    const qty = Math.max(1, Math.min(10, Math.floor(Number(qtyRaw))))\n+    if (!Number.isFinite(qty)) continue\n+    lines.push({ id: product.id, option: null, qty })\n+  }\n+  return lines\n+}\ndiff --git a/src/lib/site.ts b/src/lib/site.ts\nnew file mode 100644\nindex 0000000..c1cf308\n--- /dev/null\n+++ b/src/lib/site.ts\n@@ -0,0 +1,7 @@\n+// Builds the store's absolute base URL from the incoming request, so no domain is hard-coded.\n+export function getBaseUrl(request: Request): string {\n+  const url = new URL(request.url)\n+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host\n+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')\n+  return `${proto}://${host}`\n+}\n"
+}

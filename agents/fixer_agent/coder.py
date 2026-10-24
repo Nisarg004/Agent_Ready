@@ -21,7 +21,7 @@ from typing import Awaitable, Callable
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, InternalServerError, RateLimitError
 
 from .playbook import Fix
-from .workspace import SKIP_DIRS, Stack, _exe, _run as run_cmd, file_tree
+from .workspace import Stack, _exe, _run as run_cmd, file_tree
 
 MODEL = os.getenv("FIXER_MODEL", "asi1")
 # asi1 reasons at length by default (minutes per step on a big repo); "medium" keeps steps to seconds.

@@ -34,7 +34,7 @@ from uagents_core.contrib.protocols.chat import (  # noqa: E402
 )
 
 from fixer_agent import fixer, github  # noqa: E402
-from tester_agent.agent import URL_RE  # noqa: E402
+from shared import memory, sites, team  # noqa: E402
 from tester_agent.shopper import format_report, run as shop  # noqa: E402
 
 PROFILE_README = "fixer.md"
@@ -70,10 +70,7 @@ def _task_from(text: str) -> str:
 
 
 def _site_from(text: str) -> str | None:
-    for m in URL_RE.finditer(text):
-        if "github.com" not in m.group(1).lower():
-            return m.group(1).rstrip(".,;:!?)")
-    return None
+    return sites.find_site(text)
 
 
 chat = Protocol(spec=chat_protocol_spec)
@@ -84,6 +81,15 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     await ctx.send(sender, ChatAcknowledgement(acknowledged_msg_id=msg.msg_id))
     text = " ".join(i.text for i in msg.content if isinstance(i, TextContent)).strip()
     if not text:
+        return
+    ctx.logger.info(f"Message from {sender[:16]}…: {text[:120]!r}")
+    if team.is_chatter(text):
+        # Long commentary, typically ASI:One's assistant reacting to our last message. Answering it would start a loop.
+        ctx.logger.info(f"Ignoring long message from {sender[:16]}… ({len(text)} chars)")
+        return
+    known = await team.learn(sender, "fixer", text)
+    if team.wants_status(text):
+        await ctx.send(sender, message(await memory.summary(sender)))
         return
     job = _jobs.get(sender)
     if job and time.time() - job.created > JOB_TTL_S:
@@ -105,18 +111,28 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         asyncio.create_task(_apply(ctx, sender, job, fixes))
         return
 
+    if team.wants_merge(text):
+        await ctx.send(sender, message(await team.start_merge("fixer", sender, known)))
+        return
+
     if re.match(r"\s*re-?test\b", text, re.I):
-        site = _site_from(text) or (job.site if job else None)
+        site = _site_from(text) or (job.site if job else None) or known.get("site")
         if not site:
             await ctx.send(sender, message("Which site should I retest? e.g. `retest voltkart.onrender.com`"))
             return
-        report = await shop(site, job.task if job else _task_from(text))
+        report = await shop(site, job.task if job else (known.get("task") or _task_from(text)))
+        await memory.update(sender, site=site, shop=f"{report.passed}/5 steps on {site}")
+        await memory.remember(sender, "Fixer", "agent", f"Retested {site}: {report.passed}/5")
         await ctx.send(sender, message(format_report(report)))
         return
 
     repo_ref = github.parse_repo(text)
+    if not repo_ref and known.get("repo") and (re.match(r"\s*fix\b", text, re.I) or team.refers_to_known_site(text)):
+        # "fix my store": the repo was given to any of the three agents earlier.
+        repo_ref = tuple(known["repo"].split("/", 1))
     if not repo_ref:
-        await ctx.send(sender, message(HELP))
+        if await team.first_in_a_while(sender, "help"):
+            await ctx.send(sender, message(HELP))
         return
     owner, name = repo_ref
     if not github.allowed(owner, name):
@@ -129,11 +145,13 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     except github.GitHubError as err:
         await ctx.send(sender, message(str(err)))
         return
-    site = _site_from(text) or repo.homepage
+    site = _site_from(text) or repo.homepage or known.get("site")
     if not site:
         await ctx.send(sender, message(f"What's the live address of the store in {repo.full}? e.g. `Fix mystore.com, code at {repo.url}`"))
         return
     task = _task_from(text)
+    if task == "any product":
+        task = known.get("task") or task
     await ctx.send(sender, message(f"Reading {repo.full} and testing {site} like an AI shopper (“{task}”). About a minute…", end=False))
     try:
         new = await fixer.diagnose(site, owner, name, task)
@@ -144,23 +162,34 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     if job:
         fixer.cleanup(job)
     _jobs[sender] = new
+    await memory.update(sender, site=site, repo=repo.full, task=task, shop=f"{new.live['passed']}/5 steps on {site}", fix="plan ready, waiting for your go-ahead", fix_state="waiting", fix_site=site)
     await ctx.send(sender, message(new.live_text + "\n\n---\n\n" + fixer.plan_text(new)))
 
 
 async def _apply(ctx: Context, sender: str, job: fixer.Job, fixes):
+    await team.tell_user(ctx, "fixer", sender, await _apply_fixes(ctx, sender, job, fixes))
+
+
+async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_flow: bool = False) -> str:
+    """Make, test and propose the fixes; returns the message for the user."""
     async def progress(step: str):
         ctx.logger.info(f"[{job.repo.full}] {step}")
+        await memory.update(sender, fix=step)
 
     try:
         async with _busy:
             res = await fixer.apply(job, fixes, progress, open_pr=not DRY_RUN)
     except Exception as err:
         ctx.logger.exception("Apply failed")
-        await ctx.send(sender, message(f"Sorry, fixing {job.repo.full} failed unexpectedly ({type(err).__name__}: {err})."))
-        return
+        await memory.update(sender, fix=f"failed: {type(err).__name__}", fix_state="failed")
+        return f"Sorry, fixing {job.repo.full} failed unexpectedly ({type(err).__name__}: {err})."
     finally:
         _jobs.pop(sender, None)
         fixer.cleanup(job)
+    await memory.update(sender, fix="pull request open, waiting for you to merge" if res.pr_url else "no pull request",
+                        fix_state="done" if res.pr_url else "failed", pr_url=res.pr_url)
+    if res.after:
+        await memory.update(sender, shop=f"{res.after['passed']}/5 steps on {job.site} after the fix")
     lines = [f"## {'✅ Pull request ready' if res.pr_url else '⚠️ No pull request'}: {job.repo.full}", ""]
     if res.before and res.after:
         lines += [f"**AI shopping test: {res.before['passed']}/5 → {res.after['passed']}/5**", "", "| Step | Before | After |", "|---|---|---|"]
@@ -171,10 +200,85 @@ async def _apply(ctx: Context, sender: str, job: fixer.Job, fixes):
         lines += [res.message, ""]
     if res.summary:
         lines += ["**What I changed**", res.summary, ""]
-    if res.pr_url:
+    if res.pr_url and team_flow:
         lines += [f"Review it here: {res.pr_url}", "",
-                  f"Once it's merged and deployed, send **retest** and I'll check {job.site} live."]
-    await ctx.send(sender, message("\n".join(lines)))
+                  "Reply **merge** and I'll merge it. Once the site has redeployed, the Tester checks it live and you get the result here."
+                  if not team.AUTO_MERGE else "Merging it now; the Tester will check the live site after the deploy."]
+    elif res.pr_url:
+        lines += [f"Review it here: {res.pr_url}", "",
+                  f"Reply **merge** to merge it, or merge it yourself and send **retest**; I'll check {job.site} live."]
+    return "\n".join(lines)
+
+
+async def fix_for_team(ctx: Context, task: dict):
+    """A task another agent handed over: diagnose, then fix and open the pull request without being asked again."""
+    user, repo, by = task["user"], task["repo"], task.get("by")
+    owner, _, name = repo.partition("/")
+    site = task.get("site") if sites.is_site(task.get("site") or "") else None
+    ctx.logger.info(f"Team task {task['id']}: fix {repo} for {site or '(site from repo)'}, asked by {by}")
+
+    async def tell(text: str):
+        await team.tell_user(ctx, "fixer", user, text, via=by)
+
+    async def fail(text: str):
+        ctx.logger.warning(f"Team task {task['id']}: {text}")
+        await memory.update(user, fix=f"failed: {text}", fix_state="failed")
+        await tell(f"**Fixer:** {text}")
+
+    await memory.update(user, fix="working", fix_state="working", fix_site=site, fix_at=time.time())
+    if not site:
+        try:
+            homepage = (await github.get_repo(owner, name)).homepage
+        except Exception as err:
+            await fail(f"I can't open {repo}: {err}")
+            return
+        site = homepage if sites.is_site(homepage or "") else None
+        if not site:
+            await fail(f"I don't know where {repo} is live. Send me the site address, e.g. `mystore.com`, then say **fix it**.")
+            return
+        await memory.update(user, site=site, fix_site=site)
+    await tell(f"**Fixer:** I'm on it. Reading the code of {repo} and testing {site}.")
+    try:
+        job = await fixer.diagnose(site, owner, name, task["task"])
+    except Exception as err:
+        ctx.logger.exception("Team diagnose failed")
+        await fail(f"I couldn't prepare a fix for {repo}: {err}")
+        return
+    ctx.logger.info(f"Team task {task['id']}: live test {job.live['passed']}/5, stack {job.stack.label}, {len(job.plan.fixes)} fix(es)")
+    if not job.plan.fixes:
+        await memory.update(user, fix="nothing to fix in code", fix_state="failed")
+        await tell(job.live_text + "\n\n---\n\n" + fixer.plan_text(job))
+        fixer.cleanup(job)
+        return
+    await tell(f"**Fixer:** plan ready, {len(job.plan.fixes)} fix(es) for a {job.stack.label} store. Applying them and "
+               "testing the patched store; this usually takes 5 to 15 minutes.")
+    result = await _apply_fixes(ctx, user, job, list(job.plan.fixes), team_flow=True)
+    ctx.logger.info(f"Team task {task['id']}: done: {result.splitlines()[0]}")
+    await tell(result)
+    known = await memory.facts(user)
+    if team.AUTO_MERGE and known.get("fix_state") == "done":
+        await memory.update(user, fix_state="merging")
+        await merge_for_team(ctx, {**task, "site": site, "pr_url": known["pr_url"]})
+
+
+async def merge_for_team(ctx: Context, task: dict):
+    """Merge the Fixer's pull request, then ask AgentReady to have the Tester check the live site."""
+    user, repo, pr_url, by = task["user"], task["repo"], task["pr_url"], task.get("by")
+    owner, _, name = repo.partition("/")
+    number = github.pr_number(pr_url)
+    try:
+        if not number:
+            raise github.GitHubError(f"{pr_url} isn't a pull request link.")
+        await github.merge_pr(owner, name, number)
+    except Exception as err:
+        ctx.logger.exception("Merge failed")
+        await memory.update(user, fix=f"merge failed: {err}", fix_state="done")
+        await team.tell_user(ctx, "fixer", user, f"**Fixer:** I couldn't merge {pr_url}: {err}", via=by)
+        return
+    await memory.update(user, fix="merged, waiting for the deploy", fix_state="merged")
+    await team.tell_user(ctx, "fixer", user, f"**Fixer:** merged {pr_url}. Waiting for {task['site']} to redeploy; "
+                         "then the Tester shops on the live site and you get the result here.", via=by)
+    await memory.post_task("agentready", "verify", user, site=task["site"], task=task.get("task"))
 
 
 @chat.on_message(ChatAcknowledgement)
@@ -198,6 +302,11 @@ def create_agent(mailbox: bool | None = None, port: int | None = None) -> Agent:
     # Read as UTF-8: uAgents' own readme_path uses the platform encoding, which breaks on ₹ on Windows.
     agent._readme = (ROOT / "profiles" / PROFILE_README).read_text(encoding="utf-8")
     agent.include(chat, publish_manifest=mailbox)
+
+    @agent.on_interval(period=3.0)
+    async def pick_up_team_tasks(ctx: Context):
+        await team.pump(ctx, "fixer", {"fix": fix_for_team, "merge": merge_for_team})
+
     return agent
 
 

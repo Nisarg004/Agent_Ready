@@ -12,6 +12,12 @@ Agent Chat Protocol, so they can be used from ASI:One.
 | **AgentReady Tester** | Actually tries to shop on a website like an AI agent (find, compare, add to cart, get a checkout link) and reports each step | `agent1qvxkjpe6z7gnheuzqhf6hp6cuwld7serzjuhktyvdph9cgn3vgf6zw3zv2e` (local dev seed) |
 | **AgentReady Fixer** | Changes the store's code on GitHub so agents can buy, proves it with a before/after Tester run, and opens a pull request | `agent1q2y3q9z0y3dd3rj4m5ajgu5vpkv6gwaff2h2jd52yhx3l6demp0lxnaq9sd` (local dev seed) |
 
+## The agents work as a team
+
+All three share one memory (Redis, `shared/memory.py`), keyed by the chat user. Whatever you tell one agent, the others know: your site, your GitHub repo, the shopping task, the latest scan, shopping test and fix status. Say `status` to any of them to see it.
+
+They also hand work to each other (`shared/team.py`). Tell any agent your repo, then ask any agent to check the site. If the shopping test passes fewer than 5/5 steps and the repo is allowed, it posts a task for the Fixer, which diagnoses, applies the fixes, tests the patched store and messages you the pull request, with no further command from you. Set `TEAM_AUTO_FIX=false` to make the Fixer wait for `apply`. Everything can also run from one AgentReady chat: send your site, say **fix it** (AgentReady asks for the GitHub repo if it doesn't know it), and the Fixer's updates and pull request come back in that chat. Reply **merge**, and once the site has redeployed the Tester shops on the live site and you get the result. Set `TEAM_AUTO_MERGE=true` to skip the **merge** step. Short follow-ups like `scan my store again` use the remembered site.
+
 ## How the Fixer works
 
 In ASI:One: `Fix voltkart.onrender.com, code at github.com/you/your-store` → a fix plan → `apply all` (or `apply 1,3`) → a pull request → after merging, `retest`.

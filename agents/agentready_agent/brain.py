@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import httpx
 from openai import AsyncOpenAI
 
+from shared import sites
+
 log = logging.getLogger("agentready.brain")
 
 API_URL = os.getenv("AGENTREADY_API_URL", "https://agentready-api-khag.onrender.com").rstrip("/")
@@ -30,13 +32,6 @@ ASI1_MODEL = os.getenv("ASI1_MODEL", "asi1")
 SCAN_TIMEOUT_S = 120
 
 _llm = AsyncOpenAI(base_url="https://api.asi1.ai/v1", api_key=ASI1_API_KEY) if ASI1_API_KEY else None
-
-# Bare domains ("mystore.in") as well as full URLs. Deliberately loose: the API
-# normalises and validates, and a wrong guess just produces a clear error.
-_URL_RE = re.compile(
-    r"(https?://[^\s<>\"']+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>\"']*)?)",
-    re.IGNORECASE,
-)
 
 HELP_TEXT = (
     "Hi! I'm **AgentReady**. I check whether AI shopping agents (ChatGPT, Gemini, "
@@ -56,8 +51,7 @@ class Intent:
 
 
 def _regex_url(text: str) -> str | None:
-    match = _URL_RE.search(text)
-    return match.group(1).rstrip(".,;:!?)") if match else None
+    return sites.find_site(text)
 
 
 async def understand(text: str) -> Intent:
@@ -90,7 +84,7 @@ async def understand(text: str) -> Intent:
                 continue  # empty or truncated answer: ask once more
             raw = raw[raw.find("{") : raw.rfind("}") + 1]
             data = json.loads(raw)
-            url = data.get("url") or _regex_url(text)
+            url = data.get("url") if sites.is_site(data.get("url") or "") else _regex_url(text)
             shopping = (data.get("shopping") or "").strip() or None
             if url:
                 # Even if the model said "help", a site in the message means
