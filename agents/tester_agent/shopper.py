@@ -122,6 +122,7 @@ class Report:
     chosen: dict | None = None
     compared: list[dict] = field(default_factory=list)
     checkout_url: str | None = None
+    checkout_note: str | None = None  # something the human must still do before paying, e.g. a minimum order
     blocked_agents: list[str] = field(default_factory=list)
     seconds: float = 0.0
 
@@ -419,6 +420,9 @@ async def step_checkout(b: Browser, report: Report, chosen: Product | None, cart
         return
     if _short(chosen.name) in hs.text.lower():
         report.checkout_url = link
+        m = re.search(r"(minimum order[^.·]{0,40}?₹\s?[\d,]+)[^.·]{0,20}[.·]?\s*(add ₹\s?[\d,]+ more[^.·]{0,40})?", hs.main_text or hs.text, re.I)
+        if m:
+            report.checkout_note = ". ".join(x.strip().rstrip(".") for x in m.groups() if x) + "."
         report.steps.append(Step("Checkout link", True, "Produced a checkout link that opens with the chosen product already in the cart.", ev))
         return
     report.steps.append(Step("Checkout link", False,
@@ -449,13 +453,25 @@ def format_report(r: Report) -> str:
     verdict = "✅ An AI agent can shop here." if r.passed == 5 else "❌ An AI agent cannot complete a purchase here."
     lines = [f"## Agent shopping test: {urlparse(r.site).netloc}", "", f"Task: “{r.task}”", "",
              f"**Result: {r.passed} / 5 steps.** {verdict}", ""]
+    if r.checkout_url:
+        lines += [ready_to_buy(r), ""]
     for i, s in enumerate(r.steps, 1):
         lines.append(f"{'✅' if s.passed else '❌'} **{i}. {s.name}**: {s.detail}")
         for e in s.evidence[:4]:
             lines.append(f"   - {e}")
     if r.blocked_agents:
         lines += ["", f"⚠️ robots.txt blocks these AI agents: {', '.join(r.blocked_agents)}"]
-    if r.checkout_url:
-        lines += ["", f"Checkout link for the human: {r.checkout_url}"]
     lines += ["", f"_Tested in {r.seconds}s, reading the site as plain HTML without JavaScript, the way most AI agents do._"]
     return "\n".join(lines)
+
+
+def ready_to_buy(r: Report) -> str:
+    """The checkout link, with the chosen product already in the cart: the shopper only has to pay."""
+    item = r.chosen or {}
+    price = f" · ₹{item['price']:,.0f}" if isinstance(item.get("price"), (int, float)) else ""
+    name = item.get("name") or "Your product"
+    note = ""
+    if r.checkout_note:
+        note = "\n\n⚠️ Before paying: " + ". ".join(p[:1].upper() + p[1:] for p in r.checkout_note.split(". "))
+    return (f"### 🛒 Ready to buy\n**{name}**{price} is already in your cart. "
+            f"Open the link and complete the purchase:\n\n👉 [Go to checkout]({r.checkout_url})  \n{r.checkout_url}{note}")

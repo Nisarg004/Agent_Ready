@@ -214,8 +214,11 @@ def combine(scan_reply: str, tester_reply: str | None, handoff: str | None = Non
     if not tester_reply:
         return scan_reply + "\n\n_The shopping test by the AgentReady Tester agent didn't finish in time, so only the scan is shown._" + FIXER_HINT
     hint = "\n\n---\n\n" + handoff if handoff else "" if "5 / 5 steps" in tester_reply else FIXER_HINT
+    # A checkout link with the product already in the cart goes first: the shopper only has to pay.
+    buy = re.search(r"### 🛒 Ready to buy.*?\n(?:https?://\S+)(?:\n\n⚠️ Before paying:[^\n]*)?", tester_reply, re.S)
     return (
-        "# Part 1: AI readiness scan\n\n" + scan_reply
+        (buy.group(0) + "\n\n---\n\n" if buy else "")
+        + "# Part 1: AI readiness scan\n\n" + scan_reply
         + "\n\n---\n\n# Part 2: Can an AI agent actually buy here?\n"
         + "_Our Tester agent just tried it, step by step:_\n\n" + tester_reply + hint
     )
