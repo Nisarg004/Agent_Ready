@@ -2,7 +2,7 @@
 
     diagnose()  clone the store's repo, work out its stack, let the Tester shop on the
                 live site, and turn what failed into a plan of fixes for the owner to pick.
-    apply()     run the original store locally and test it (before), let ASI:One make the
+    apply()     run the original store locally and test it (before), let Nemotron make the
                 chosen fixes, rebuild and test again (after), retry if needed, then open a
                 pull request with the before/after proof. Nothing is merged or deployed.
 """
@@ -244,7 +244,7 @@ async def apply(job: Job, fixes: list[Fix], progress: Progress = _quiet, open_pr
     feedback = ""
     broken: list[str] = []
     for round_no in range(1, ROUNDS + 1):
-        await progress(f"Making the changes (round {round_no} of up to {ROUNDS})…" if round_no > 1 else "Making the changes with ASI:One…")
+        await progress(f"Making the changes (round {round_no} of up to {ROUNDS})…" if round_no > 1 else "Making the changes with Nemotron…")
         extra = feedback
         if after is not None and not feedback:
             still = [s for s in after.steps if s.name in targets and not s.passed]

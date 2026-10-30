@@ -16,11 +16,10 @@ import re
 from dataclasses import dataclass
 
 import httpx
-from openai import AsyncOpenAI
 
 from tester_agent.web import public_client, safe_request
 
-from shared import sites
+from shared import llm, sites
 from shared.privacy import redact, redact_text, private_output
 
 log = logging.getLogger("agentready.brain")
@@ -28,13 +27,11 @@ log = logging.getLogger("agentready.brain")
 API_URL = os.getenv("AGENTREADY_API_URL", "https://agentready-api-khag.onrender.com").rstrip("/")
 AGENT_API_KEY = os.getenv("AGENT_API_KEY", "")
 WEB_URL = os.getenv("AGENTREADY_WEB_URL", "https://agentready-five-rust.vercel.app").rstrip("/")
-ASI1_API_KEY = os.getenv("ASI1_API_KEY", "")
-ASI1_MODEL = os.getenv("ASI1_MODEL", "asi1")
 
 # A scan can wait on a sleeping Render instance (~50s) plus the scan itself (~20s).
 SCAN_TIMEOUT_S = 120
 
-_llm = AsyncOpenAI(base_url="https://api.asi1.ai/v1", api_key=ASI1_API_KEY) if ASI1_API_KEY else None
+_llm = llm.chat_model()
 
 HELP_TEXT = (
     "Hi! I'm **AgentReady**. I check whether AI shopping agents (ChatGPT, Gemini, "
@@ -58,17 +55,17 @@ def _regex_url(text: str) -> str | None:
 
 
 async def understand(text: str) -> Intent:
-    """Work out what the user wants. ASI:One's model first, a regex as backup."""
+    """Work out what the user wants. Configured model first, regex as backup."""
     for _attempt in range(2 if _llm else 0):
         try:
-            r = await _llm.chat.completions.create(
-                model=ASI1_MODEL,
+            r = await _llm.client.chat.completions.create(
+                model=_llm.name,
                 temperature=0,
                 max_tokens=500,
                 messages=[
                     {
                         "role": "system",
-                        "content": (
+                        "content": ("/no_think\n" if _llm.provider == "nebius" else "") + (
                             "You route messages for AgentReady, an agent that checks whether AI shopping agents can use a website. "
                             "Reply with JSON only: "
                             '{"action": "scan" | "help", "url": string | null, "shopping": string | null}. '
@@ -82,7 +79,7 @@ async def understand(text: str) -> Intent:
                     {"role": "user", "content": redact_text(text)},
                 ],
             )
-            raw = (r.choices[0].message.content or "").strip()
+            raw = re.sub(r"<think>.*?</think>", "", r.choices[0].message.content or "", flags=re.S).strip()
             if "{" not in raw:
                 continue  # empty or truncated answer: ask once more
             raw = raw[raw.find("{") : raw.rfind("}") + 1]
@@ -95,7 +92,7 @@ async def understand(text: str) -> Intent:
                 return Intent("scan", url, shopping)
             return Intent("help")
         except Exception as err:  # model down, bad JSON: fall through to regex
-            log.warning("ASI:One intent call failed, using regex: %s", err)
+            log.warning("%s intent call failed, using regex: %s", _llm.label, err)
 
     url = _regex_url(text)
     return Intent("scan", url) if url else Intent("help")

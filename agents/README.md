@@ -29,7 +29,7 @@ In ASI:One: `Fix voltkart.onrender.com, code at github.com/you/your-store` → a
 
 1. **Diagnose.** Clones the repo, detects the stack (Next.js, Vite SPA, Node/Express, Flask, Django, plain HTML) and runs the Tester on the live site.
 2. **Plan.** Maps failed steps to generic fixes (`fixer_agent/playbook.py`): robots.txt access for AI agents, products readable without JavaScript, JSON-LD + sitemap + llms.txt, plain-HTML add to cart, and a checkout link that carries the cart. Nothing is store-specific.
-3. **Fix.** ASI:One (`asi1`, tool calling) edits the repo through a few safe tools: list, read, search, write, replace, build, test. It cannot run commands, edit secrets, lockfiles or git, or touch anything outside the repo.
+3. **Fix.** Nemotron on Nebius Token Factory (tool calling) edits the repo through a few safe tools: list, read, search, write, replace, build, test. It cannot run commands, edit secrets, lockfiles or git, or touch anything outside the repo.
 4. **Prove.** The original and the patched store are installed, built and run locally, and the Tester shops on both. Failing steps are fed back for up to three rounds.
 5. **Pull request** with the before/after table. Nothing is merged or deployed.
 
@@ -92,7 +92,7 @@ pip install -r requirements.txt
 copy .env.example .env          # macOS/Linux: cp .env.example .env
 ```
 
-Fill in `.env`: set `AGENTREADY_AGENT_SEED` to any long secret phrase, and `ASI1_API_KEY` to your key from [asi1.ai](https://asi1.ai/dashboard/api-keys). Without the key the agent still works, using simple address detection.
+Fill in `.env`: set `AGENTREADY_AGENT_SEED` to any long secret phrase, and `NEBIUS_API_KEY` to your [Nebius Token Factory](https://tokenfactory.nebius.com) key; the agents think with NVIDIA Nemotron through it. Check the key and model ids with `python tools/list_models.py --ping`. Without a key the agent still works, using simple address detection (`ASI1_API_KEY` also works as a fallback).
 
 **Try a conversation without ASI:One** (runs the agent and a test client together):
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File agents\start_agents.ps1
 | Path | Purpose |
 |---|---|
 | `agentready_agent/agent.py` | uAgent + chat protocol wiring, per-user scan limit |
-| `agentready_agent/brain.py` | Understands the message (ASI:One `asi1` model, regex fallback), calls the AgentReady API, writes the reply |
+| `agentready_agent/brain.py` | Understands the message (Nemotron on Nebius, regex fallback), calls the AgentReady API, writes the reply |
 | `tester_agent/agent.py` | Tester uAgent + chat protocol wiring, per-user run limit |
 | `tester_agent/shopper.py` | The five shopping steps and the report |
 | `tester_agent/web.py` | Plain-HTTP "browser": cookies, robots.txt, form posts |
@@ -132,7 +132,9 @@ powershell -ExecutionPolicy Bypass -File agents\start_agents.ps1
 | `tools/local_chat_test.py` | Local end-to-end chat test (`--tester` for the Tester) |
 | `fixer_agent/agent.py` | Fixer uAgent + chat protocol: plan, apply, retest |
 | `fixer_agent/playbook.py` | Generic fixes and how they map to failed Tester steps |
-| `fixer_agent/coder.py` | ASI:One tool-calling loop that edits the repo |
+| `fixer_agent/coder.py` | Nemotron tool-calling loop that edits the repo |
+| `shared/llm.py` | Picks the model: Nemotron on Nebius Token Factory, ASI:One as fallback |
+| `tools/list_models.py` | Checks the Nebius key and lists the Nemotron models it can use |
 | `fixer_agent/workspace.py` | Detects the stack; installs, builds and runs a store locally |
 | `fixer_agent/github.py` | Clone, branch, push and pull request |
 | `tools/run_fixer.py`, `tools/local_fixer_chat.py` | Run the Fixer from the command line / chat with it locally |

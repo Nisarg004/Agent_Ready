@@ -42,9 +42,13 @@ class PrivacyTests(unittest.IsolatedAsyncioTestCase):
                     return chunks()
                 return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"action":"scan","url":"https://example.com"}'))])
         client=SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
-        with patch.object(brain,'_llm',client): await brain.understand('Scan https://example.com '+SECRET)
+        for provider in ('nebius', 'asi1'):
+            model=SimpleNamespace(client=client,name='test-model',provider=provider,label='Test model')
+            with patch.object(brain,'_llm',model):
+                intent = await brain.understand('Scan https://example.com '+SECRET)
+                self.assertEqual(intent.url, 'https://example.com')
         await coder._stream(client,messages=[{'role':'user','content':SECRET},{'role':'tool','content':SECRET}])
-        self.assertEqual(len(captured),2)
+        self.assertEqual(len(captured),3)
         self.clean(captured)
 
     async def test_memory_persistence_and_expiry(self):

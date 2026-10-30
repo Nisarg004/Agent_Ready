@@ -20,12 +20,12 @@ from typing import Awaitable, Callable
 
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, InternalServerError, RateLimitError
 
+from shared import llm
 from shared.privacy import redact, redact_text
 
 from .playbook import Fix
 from .workspace import Stack, file_tree
 
-MODEL = os.getenv("FIXER_MODEL", "asi1")
 # asi1 reasons at length by default (minutes per step on a big repo); "medium" keeps steps to seconds.
 REASONING = os.getenv("FIXER_REASONING", "medium")
 MAX_TOOL_CALLS = int(os.getenv("FIXER_MAX_TOOL_CALLS", "60"))
@@ -218,7 +218,13 @@ def _trim(messages: list[dict], budget: int = 180_000):
 
 async def work(session: Session, fixes: list[Fix], report_text: str, extra: str = "",
                client: AsyncOpenAI | None = None) -> Session:
-    client = client or AsyncOpenAI(base_url="https://api.asi1.ai/v1", api_key=os.environ["ASI1_API_KEY"], timeout=120)
+    model = llm.coder_model()
+    if client is None:
+        if model is None:
+            raise RuntimeError("Set NEBIUS_API_KEY (or ASI1_API_KEY) so the Fixer can edit code")
+        client = model.client
+    name = model.name if model else os.getenv("NEBIUS_CODER_MODEL", llm.NEBIUS_CODER_MODEL)
+    extra_args = {"reasoning_effort": REASONING} if model and model.provider == "asi1" else {}
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": _brief(session.stack, fixes, report_text, file_tree(session.ws), extra)}]
     tools = [{"type": "function", "function": t} for t in TOOLS]
@@ -227,7 +233,7 @@ async def work(session: Session, fixes: list[Fix], report_text: str, extra: str 
     while calls < MAX_TOOL_CALLS and not session.summary:
         _trim(messages)
         t0 = time.time()
-        resp = await _complete(client, messages=messages, tools=tools)
+        resp = await _complete(client, model=name, messages=messages, tools=tools, **extra_args)
         msg = resp.choices[0].message
         used = getattr(resp, "usage", None)
         _trace(f"model {time.time() - t0:.0f}s, {getattr(used, 'prompt_tokens', '?')} in / {getattr(used, 'completion_tokens', '?')} out → "
@@ -259,7 +265,7 @@ async def work(session: Session, fixes: list[Fix], report_text: str, extra: str 
     if not session.summary and session.edits:
         messages.append({"role": "user", "content": "Summarise what you changed and why, as a short bullet list for the pull request."})
         try:
-            resp = await _complete(client, messages=messages)
+            resp = await _complete(client, model=name, messages=messages, **extra_args)
             session.summary = (resp.choices[0].message.content or "").strip()
         except Exception:
             session.summary = "\n".join(f"- {line}" for line in session.log if line.startswith(("wrote", "edited")))
@@ -284,8 +290,7 @@ async def _stream(client: AsyncOpenAI, **kwargs):
     Returns the same shape as a non-streamed response: .choices[0].message and .usage.
     """
     kwargs["messages"] = redact(kwargs.get("messages", []))
-    stream = await client.chat.completions.create(model=MODEL, temperature=0.2, max_tokens=16000, stream=True,
-                                                  reasoning_effort=REASONING,
+    stream = await client.chat.completions.create(temperature=0.2, max_tokens=16000, stream=True,
                                                   stream_options={"include_usage": True}, **kwargs)
     content, calls, usage = [], {}, None
     async for chunk in stream:
@@ -304,5 +309,6 @@ async def _stream(client: AsyncOpenAI, **kwargs):
                 c["args"].append(tc.function.arguments)
     tool_calls = [SimpleNamespace(id=c["id"] or f"call_{i}", function=SimpleNamespace(name=c["name"], arguments="".join(c["args"])))
                   for i, c in sorted(calls.items())]
-    message = SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None)
+    text = re.sub(r"<think>.*?</think>", "", "".join(content), flags=re.S).strip()
+    message = SimpleNamespace(content=text or None, tool_calls=tool_calls or None)
     return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
