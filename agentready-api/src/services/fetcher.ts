@@ -269,7 +269,7 @@ async function readCapped(stream: NodeJS.ReadableStream, limit: number): Promise
 function decompressIfGzipped(raw: Buffer): Buffer {
   if (raw.length < 2 || raw[0] !== 0x1f || raw[1] !== 0x8b) return raw;
   try {
-    return gunzipSync(raw);
+    return gunzipSync(raw, { maxOutputLength: MAX_BODY_BYTES });
   } catch {
     // A truncated archive cannot be unwrapped. Returning the raw bytes leaves
     // the caller exactly where it was rather than throwing away the request.

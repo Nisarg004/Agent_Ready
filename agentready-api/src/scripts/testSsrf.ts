@@ -9,7 +9,7 @@ async function main() {
     assert.equal(isPublicIp(ip), true, ip);
   }
   for (const url of ['http://127.0.0.1/', 'http://169.254.169.254/latest/meta-data/', 'http://localhost/', 'file:///etc/passwd', 'http://user:pass@example.com/', 'http://8.8.8.8:8080/']) {
-    await assert.rejects(() => resolvePublicTarget(url), undefined, url);
+    await assert.rejects(() => resolvePublicTarget(url), new RegExp("Unsafe"), url);
   }
   const target = await resolvePublicTarget('https://1.1.1.1/');
   assert.equal(target.address, '1.1.1.1');

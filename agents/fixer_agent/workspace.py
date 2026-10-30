@@ -138,11 +138,24 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def execution_allowed() -> bool:
+    # Set only by an operator inside a disposable sandbox without host mounts,
+    # credentials or internal-network access. Environment scrubbing is not isolation.
+    return os.getenv("FIXER_ISOLATED_EXECUTION") == "1"
+
+
+def child_env() -> dict:
+    keys = {"PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "LANG"}
+    return {k: v for k, v in os.environ.items() if k.upper() in keys}
+
+
 async def _run(cmd: list[str], cwd: Path, timeout: int, env: dict | None = None) -> tuple[int, str]:
+    if not execution_allowed():
+        return 126, "Repository execution disabled: run Fixer in an isolated sandbox and set FIXER_ISOLATED_EXECUTION=1."
     def go():
         try:
             out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                 timeout=timeout, env={**os.environ, **(env or {})})
+                                 timeout=timeout, env={**child_env(), **(env or {})})
             return out.returncode, (out.stdout + "\n" + out.stderr)
         except subprocess.TimeoutExpired:
             return 124, f"Timed out after {timeout}s"
@@ -195,18 +208,20 @@ class Server:
         return f"http://127.0.0.1:{self.port}"
 
     async def __aenter__(self) -> "Server":
+        if not execution_allowed():
+            raise RuntimeError("Repository execution requires an isolated sandbox")
         if not self.stack.start:
             raise RuntimeError("I don't know how to start this store locally.")
         cmd = [c.replace("{port}", str(self.port)) for c in self.stack.start]
         # No NODE_ENV=production here: many apps then mark cookies "secure", which browsers (and the
         # Tester) drop over plain http on 127.0.0.1. Frameworks like Next.js set it themselves.
-        env = {k: v for k, v in os.environ.items() if k != "NODE_ENV"}
+        env = child_env()
         env.update({"PORT": str(self.port), "FLASK_DEBUG": "0", "NEXT_TELEMETRY_DISABLED": "1"})
         log = open(self.log_path, "w", encoding="utf-8")
         flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         self.proc = subprocess.Popen(cmd, cwd=app_dir(self.ws, self.stack), stdout=log, stderr=subprocess.STDOUT, env=env,
                                      creationflags=flags, start_new_session=os.name != "nt")
-        async with httpx.AsyncClient(timeout=5) as c:
+        async with httpx.AsyncClient(timeout=5, trust_env=False) as c:
             for _ in range(90):
                 if self.proc.poll() is not None:
                     break
