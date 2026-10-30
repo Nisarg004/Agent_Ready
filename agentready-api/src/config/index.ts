@@ -22,6 +22,7 @@ export const config = {
     `http://localhost:${num(process.env.PORT, 5100)}`
   ).replace(/\/+$/, ''),
   frontendUrls,
+  trustedProxies: (process.env.TRUSTED_PROXY_CIDRS || '').split(',').map(v => v.trim()).filter(Boolean),
 
   mongoUri: process.env.MONGODB_URI || '',
 

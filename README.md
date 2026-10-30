@@ -29,6 +29,14 @@ Built at **Fetch-A-Thon 3.0** · Masters' Union × Fetch.ai × Innovation Lab ×
 
 ---
 
+
+> **Current security mode:** public scanning and restricted cart tests are supported.
+> Fixer access requires an operator-verified requester/repository/site binding.
+> Agent-driven merges are disabled; review and merge in GitHub. Repository
+> execution remains disabled by default. This repository does not yet provide the
+> isolated runner and per-job local testing capability needed to reproduce the
+> historical end-to-end Fixer demo securely. See [SECURITY-REVIEW.md](SECURITY-REVIEW.md).
+
 ## Demo
 
 | | |

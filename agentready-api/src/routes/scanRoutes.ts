@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
-import { scanRateLimit } from '../middleware/scanRateLimit';
+import { scanRateLimit, unlockRateLimit, recipientRateLimit } from '../middleware/scanRateLimit';
 import {
   compareScan,
   createScan,
@@ -23,7 +23,7 @@ router.post('/:scanId/compare', scanRateLimit, asyncHandler(compareScan));
 router.get('/stats', asyncHandler(getStats));
 
 router.get('/:scanId', asyncHandler(getScan));
-router.post('/:scanId/unlock', asyncHandler(unlockScan));
+router.post('/:scanId/unlock', unlockRateLimit, recipientRateLimit, asyncHandler(unlockScan));
 router.get('/:scanId/report', asyncHandler(getScanReport));
 
 // Reading back scans we already stored — no crawl, so no rate limit.

@@ -37,6 +37,7 @@ from uagents_core.contrib.protocols.chat import (  # noqa: E402
 
 from fixer_agent import fixer, github  # noqa: E402
 from shared.privacy import redact_text
+from shared.authorization import authorized, bound_site
 from shared import memory, sites, team  # noqa: E402
 from tester_agent.shopper import format_report, run as shop  # noqa: E402
 
@@ -104,6 +105,9 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
         if not job:
             await ctx.send(sender, message("There's no fix plan waiting. Send me your site and GitHub repo first.\n\n" + HELP))
             return
+        if not authorized(sender, job.repo.full, job.site):
+            await ctx.send(sender, message("Fixer access denied: requester/repository/site binding is missing."))
+            return
         fixes = fixer.pick(job, text)
         if not fixes:
             await ctx.send(sender, message(f"Which fixes? Reply **apply all** or numbers from the plan, e.g. **apply 1,2** (1 to {len(job.plan.fixes)})."))
@@ -148,9 +152,12 @@ async def handle_chat(ctx: Context, sender: str, msg: ChatMessage):
     except github.GitHubError as err:
         await ctx.send(sender, message(str(err)))
         return
-    site = _site_from(text) or repo.homepage or known.get("site")
+    site = _site_from(text) or known.get("site") or bound_site(sender, repo.full)
     if not site:
         await ctx.send(sender, message(f"What's the live address of the store in {repo.full}? e.g. `Fix mystore.com, code at {repo.url}`"))
+        return
+    if not authorized(sender, repo.full, site):
+        await ctx.send(sender, message("Fixer access denied: an operator must verify your requester ID, repository and site."))
         return
     task = _task_from(text)
     if task == "any product":
@@ -179,6 +186,8 @@ async def _apply(ctx: Context, sender: str, job: fixer.Job, fixes):
 
 async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_flow: bool = False, on_step=None) -> str:
     """Make, test and propose the fixes; returns the message for the user. on_step(text) shows each step live."""
+    if not authorized(sender, job.repo.full, job.site):
+        return "Fixer access denied: requester/repository/site binding is missing."
     async def progress(step: str):
         ctx.logger.info(f"[{job.repo.full}] {step}")
         await memory.update(sender, fix=step)
@@ -187,6 +196,8 @@ async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_fl
 
     try:
         async with _busy:
+            if not authorized(sender, job.repo.full, job.site) or not github.allowed(job.repo.owner, job.repo.name):
+                return "Fixer access denied: enrollment or repository grant was revoked."
             res = await fixer.apply(job, fixes, progress, open_pr=not DRY_RUN)
     except Exception as err:
         ctx.logger.exception("Apply failed")
@@ -223,7 +234,7 @@ async def _apply_fixes(ctx: Context, sender: str, job: fixer.Job, fixes, team_fl
                   if not team.AUTO_MERGE else "Merging it now; the Tester will check the live site after the deploy."]
     elif res.pr_url:
         lines += [f"Review it here: {res.pr_url}", "",
-                  f"Reply **merge** to merge it, or merge it yourself and send **retest**; I'll check {job.site} live."]
+                  f"Review and merge it in GitHub, then send **retest**; I'll check {job.site} live."]
     return "\n".join(lines)
 
 
@@ -232,6 +243,9 @@ async def fix_for_team(ctx: Context, task: dict):
     user, repo, by = task["user"], task["repo"], task.get("by")
     owner, _, name = repo.partition("/")
     site = task.get("site") if sites.is_site(task.get("site") or "") else None
+    if not github.allowed(owner, name) or not authorized(user, repo, site or ""):
+        ctx.logger.warning("Rejected unauthorized Fixer task")
+        return
     ctx.logger.info(f"Team task {task['id']}: fix {repo} for {site or '(site from repo)'}, asked by {by}")
 
     async def tell(text: str, final: bool = True):
@@ -284,22 +298,8 @@ async def fix_for_team(ctx: Context, task: dict):
 
 async def merge_for_team(ctx: Context, task: dict):
     """Merge the Fixer's pull request, then ask AgentReady to have the Tester check the live site."""
-    user, repo, pr_url, by = task["user"], task["repo"], task["pr_url"], task.get("by")
-    owner, _, name = repo.partition("/")
-    number = github.pr_number(pr_url)
-    try:
-        if not number:
-            raise github.GitHubError(f"{pr_url} isn't a pull request link.")
-        await github.merge_pr(owner, name, number)
-    except Exception as err:
-        ctx.logger.exception("Merge failed")
-        await memory.update(user, fix=f"merge failed: {err}", fix_state="done")
-        await team.tell_user(ctx, "fixer", user, f"**Fixer:** I couldn't merge {pr_url}: {err}", via=by)
-        return
-    await memory.update(user, fix="merged, waiting for the deploy", fix_state="merged")
-    await team.tell_user(ctx, "fixer", user, f"⏳ **Fixer:** merged {pr_url}. Waiting for {task['site']} to redeploy; "
-                         "then the Tester shops on the live site and you get the result here.", via=by, final=False)
-    await memory.post_task("agentready", "verify", user, site=task["site"], task=task.get("task"))
+    raise PermissionError("Chat/queued merges are disabled. Review and merge in GitHub.")
+
 
 
 @chat.on_message(ChatAcknowledgement)

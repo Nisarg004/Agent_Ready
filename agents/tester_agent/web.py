@@ -32,10 +32,12 @@ MAX_BODY = 5 * 1024 * 1024
 
 def public_ip(value: str) -> bool:
     ip = ipaddress.ip_address(value)
-    return (ip.is_global and not ip.is_multicast and
-            not (ip.version == 6 and (ip.ipv4_mapped or ip.sixtofour or ip.teredo or
-                 ip in ipaddress.ip_network("2001::/23") or
-                 ip in ipaddress.ip_network("3fff::/20"))))
+    if ip.version == 4:
+        return ip.is_global and not ip.is_multicast
+    # Match Node: global unicast only, excluding special, tunnel and documentation space.
+    return (ip in ipaddress.ip_network("2000::/3") and
+            not any(ip in ipaddress.ip_network(net) for net in
+                    ("2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20")))
 
 
 async def resolve_target(url: httpx.URL) -> str:

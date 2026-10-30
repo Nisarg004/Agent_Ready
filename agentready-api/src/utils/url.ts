@@ -1,3 +1,5 @@
+import { isIP } from 'net';
+import { isPublicIp } from '../services/safeRequest';
 /**
  * URL normalisation and validation.
  *
@@ -22,7 +24,7 @@ export interface NormalizedUrl {
   domain: string;
 }
 
-const PRIVATE_HOST = /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/i;
+
 
 export function normalizeUrl(input: string): NormalizedUrl {
   const raw = (input || '').trim();
@@ -51,7 +53,7 @@ export function normalizeUrl(input: string): NormalizedUrl {
 
   // Refuse to point the scanner at loopback or private ranges. A public endpoint
   // that fetches arbitrary URLs is an SSRF probe if it can reach internal hosts.
-  if (PRIVATE_HOST.test(hostname)) {
+  if (hostname === 'localhost' || hostname.endsWith('.localhost') || (isIP(hostname.replace(/^\[|\]$/g, '')) && !isPublicIp(hostname))) {
     throw new InvalidUrlError('That address is not a public website.');
   }
 

@@ -148,7 +148,4 @@ def pr_number(url: str) -> int | None:
 
 
 async def merge_pr(owner: str, name: str, number: int) -> None:
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.put(f"{API}/repos/{owner}/{name}/pulls/{number}/merge", headers=_headers(), json={"merge_method": "squash"})
-    if r.status_code >= 300:
-        raise GitHubError(f"GitHub refused the merge ({r.status_code}): {r.json().get('message', r.text[:200])}")
+    raise GitHubError("Agent merging is disabled; review and merge in GitHub.")

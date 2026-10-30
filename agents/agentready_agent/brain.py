@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import httpx
 from openai import AsyncOpenAI
 
+from tester_agent.web import public_client, safe_request
+
 from shared import sites
 from shared.privacy import redact, redact_text, private_output
 
@@ -114,10 +116,10 @@ async def wake_site(url: str, attempts: int = 4) -> bool:
     Returns False if the site never came up.
     """
     target = url if url.startswith("http") else f"https://{url}"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=15.0), follow_redirects=True) as client:
+    async with public_client(timeout=httpx.Timeout(45.0, connect=15.0)) as client:
         for i in range(attempts):
             try:
-                r = await client.get(target)
+                r = await safe_request(client, "GET", target)
                 if r.status_code < 500:
                     return True
             except httpx.HTTPError:

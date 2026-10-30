@@ -16,9 +16,8 @@ export function createApp(): Application {
     'http://localhost:5173',
   ]);
 
-  // Render (and most PaaS hosts) sit behind a proxy; without this the rate
-  // limiter would see one shared IP and throttle everyone together.
-  app.set('trust proxy', 1);
+  // Trust forwarding headers only from operator-verified proxy networks.
+  app.set('trust proxy', config.trustedProxies.length ? config.trustedProxies : false);
 
   // The report route serves HTML we build ourselves, including <pre> blocks of
   // user-site content. helmet's defaults are kept, but the report is explicitly
@@ -45,15 +44,6 @@ export function createApp(): Application {
         // Non-browser callers (curl, the sales-call demo script) send no Origin.
         if (!origin) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
-
-        try {
-          const hostname = new URL(origin).hostname;
-          if (/\.vercel\.app$/i.test(hostname) || /(^|\.)codenixlabs\.com$/i.test(hostname)) {
-            return callback(null, true);
-          }
-        } catch {
-          return callback(new Error('Invalid Origin'));
-        }
 
         return callback(new Error('Not allowed by CORS'));
       },
