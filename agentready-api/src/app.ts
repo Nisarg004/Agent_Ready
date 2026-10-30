@@ -1,3 +1,4 @@
+import { redact, installPrivacyLogging } from './utils/privacy';
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -6,6 +7,7 @@ import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 export function createApp(): Application {
+  installPrivacyLogging();
   const app = express();
 
   const allowedOrigins = new Set([
@@ -14,9 +16,8 @@ export function createApp(): Application {
     'http://localhost:5173',
   ]);
 
-  // Render (and most PaaS hosts) sit behind a proxy; without this the rate
-  // limiter would see one shared IP and throttle everyone together.
-  app.set('trust proxy', 1);
+  // Trust forwarding headers only from operator-verified proxy networks.
+  app.set('trust proxy', config.trustedProxies.length ? config.trustedProxies : false);
 
   // The report route serves HTML we build ourselves, including <pre> blocks of
   // user-site content. helmet's defaults are kept, but the report is explicitly
@@ -44,15 +45,6 @@ export function createApp(): Application {
         if (!origin) return callback(null, true);
         if (allowedOrigins.has(origin)) return callback(null, true);
 
-        try {
-          const hostname = new URL(origin).hostname;
-          if (/\.vercel\.app$/i.test(hostname) || /(^|\.)codenixlabs\.com$/i.test(hostname)) {
-            return callback(null, true);
-          }
-        } catch {
-          return callback(new Error('Invalid Origin'));
-        }
-
         return callback(new Error('Not allowed by CORS'));
       },
       methods: ['GET', 'POST', 'OPTIONS'],
@@ -63,6 +55,12 @@ export function createApp(): Application {
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+  app.use((_req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = (body: unknown) => json(redact(JSON.parse(JSON.stringify(body))));
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use('/api', routes);
 
   app.get('/', (_req, res) => {

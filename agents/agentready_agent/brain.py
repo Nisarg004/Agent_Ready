@@ -16,9 +16,11 @@ import re
 from dataclasses import dataclass
 
 import httpx
-from openai import AsyncOpenAI
+
+from tester_agent.web import public_client, safe_request
 
 from shared import llm, sites
+from shared.privacy import redact, redact_text, private_output
 
 log = logging.getLogger("agentready.brain")
 
@@ -29,7 +31,6 @@ WEB_URL = os.getenv("AGENTREADY_WEB_URL", "https://agentready-five-rust.vercel.a
 # A scan can wait on a sleeping Render instance (~50s) plus the scan itself (~20s).
 SCAN_TIMEOUT_S = 120
 
-# Nemotron on Nebius Token Factory (ASI:One if only that key is set); None means regex only.
 _llm = llm.chat_model()
 
 HELP_TEXT = (
@@ -54,7 +55,7 @@ def _regex_url(text: str) -> str | None:
 
 
 async def understand(text: str) -> Intent:
-    """Work out what the user wants. Nemotron first, a regex as backup."""
+    """Work out what the user wants. Configured model first, regex as backup."""
     for _attempt in range(2 if _llm else 0):
         try:
             r = await _llm.client.chat.completions.create(
@@ -64,7 +65,6 @@ async def understand(text: str) -> Intent:
                 messages=[
                     {
                         "role": "system",
-                        # Nemotron answers straight away with /no_think: routing needs no long reasoning.
                         "content": ("/no_think\n" if _llm.provider == "nebius" else "") + (
                             "You route messages for AgentReady, an agent that checks whether AI shopping agents can use a website. "
                             "Reply with JSON only: "
@@ -76,14 +76,14 @@ async def understand(text: str) -> Intent:
                             'Otherwise use "help".'
                         ),
                     },
-                    {"role": "user", "content": text},
+                    {"role": "user", "content": redact_text(text)},
                 ],
             )
             raw = re.sub(r"<think>.*?</think>", "", r.choices[0].message.content or "", flags=re.S).strip()
             if "{" not in raw:
                 continue  # empty or truncated answer: ask once more
             raw = raw[raw.find("{") : raw.rfind("}") + 1]
-            data = json.loads(raw)
+            data = redact(json.loads(raw))
             url = data.get("url") if sites.is_site(data.get("url") or "") else _regex_url(text)
             shopping = (data.get("shopping") or "").strip() or None
             if url:
@@ -113,10 +113,10 @@ async def wake_site(url: str, attempts: int = 4) -> bool:
     Returns False if the site never came up.
     """
     target = url if url.startswith("http") else f"https://{url}"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=15.0), follow_redirects=True) as client:
+    async with public_client(timeout=httpx.Timeout(45.0, connect=15.0)) as client:
         for i in range(attempts):
             try:
-                r = await client.get(target)
+                r = await safe_request(client, "GET", target)
                 if r.status_code < 500:
                     return True
             except httpx.HTTPError:
@@ -165,6 +165,7 @@ def _first_sentence(text: str, limit: int = 220) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+@private_output
 def format_report(scan: dict) -> str:
     domain = scan.get("domain", "your site")
 

@@ -18,6 +18,9 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from shared.privacy import safe_url, cart_fields, PAYMENT, SENSITIVE, scrub_html
+from urllib.parse import parse_qsl, unquote
+
 USER_AGENT = (
     "Mozilla/5.0 (compatible; AgentReady-Shopper/1.0; +https://agentready-five-rust.vercel.app) "
     "AI shopping agent test"
@@ -29,10 +32,12 @@ MAX_BODY = 5 * 1024 * 1024
 
 def public_ip(value: str) -> bool:
     ip = ipaddress.ip_address(value)
-    return (ip.is_global and not ip.is_multicast and
-            not (ip.version == 6 and (ip.ipv4_mapped or ip.sixtofour or ip.teredo or
-                 ip in ipaddress.ip_network("2001::/23") or
-                 ip in ipaddress.ip_network("3fff::/20"))))
+    if ip.version == 4:
+        return ip.is_global and not ip.is_multicast
+    # Match Node: global unicast only, excluding special, tunnel and documentation space.
+    return (ip in ipaddress.ip_network("2000::/3") and
+            not any(ip in ipaddress.ip_network(net) for net in
+                    ("2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20")))
 
 
 async def resolve_target(url: httpx.URL) -> str:
@@ -87,6 +92,17 @@ def public_client(**kwargs) -> httpx.AsyncClient:
 
 async def _safe_request(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
     for hop in range(6):
+        parsed = urlparse(url)
+        path = unquote(parsed.path)
+        if re.search(r"/(?:account|customers?|orders?|profile|admin|login|sign-?in)(?:/|$)", path, re.I):
+            raise httpx.RequestError("Private customer endpoint blocked")
+        for key, value in parse_qsl(parsed.query):
+            if key.lower() in ("action", "do", "submit") and PAYMENT.search(value):
+                raise httpx.RequestError("Payment action blocked")
+            if SENSITIVE.search(key) and not re.search(r"csrf|nonce|^_token$", key, re.I):
+                raise httpx.RequestError("Sensitive URL parameters blocked")
+        if method != "GET" and PAYMENT.search(path):
+            raise httpx.RequestError("Checkout/payment submission blocked")
         r = await client.request(method, url, **kwargs)
         if r.status_code not in (301, 302, 303, 307, 308) or "location" not in r.headers:
             return r
@@ -153,7 +169,9 @@ class Browser:
         self.log: list[str] = []
 
     async def close(self):
+        self.client.cookies.clear()
         await self.client.aclose()
+        self.log.clear()
 
     def same_site(self, url: str) -> bool:
         return urlparse(url).netloc == urlparse(self.origin).netloc
@@ -174,21 +192,28 @@ class Browser:
 
     async def get(self, url: str, check_robots: bool = True) -> Page:
         if check_robots and self.robots and not self.robots.allows(url):
-            self.log.append(f"SKIP (robots.txt) GET {url}")
+            self.log.append(f"SKIP (robots.txt) GET {safe_url(url, log=True)}")
             return Page(url, 999, "")
         try:
             r = await safe_request(self.client, "GET", url)
-            self.log.append(f"GET {url} -> {r.status_code}")
-            return Page(str(r.url), r.status_code, r.text, r.headers.get("content-type", ""))
+            self.log.append(f"GET {safe_url(url, log=True)} -> {r.status_code}")
+            return Page(str(r.url), r.status_code, scrub_html(r.text), r.headers.get("content-type", ""))
         except httpx.HTTPError as err:
-            self.log.append(f"GET {url} -> error {type(err).__name__}")
+            self.log.append(f"GET {safe_url(url, log=True)} -> error {type(err).__name__}")
             return Page(url, 0, "")
 
     async def post_form(self, url: str, data: list[tuple[str, str]], multipart: bool = False, referer: str | None = None) -> Page:
         if self.robots and not self.robots.allows(url):
-            self.log.append(f"SKIP (robots.txt) POST {url}")
+            self.log.append(f"SKIP (robots.txt) POST {safe_url(url, log=True)}")
             return Page(url, 999, "")
-        headers = {"Referer": referer} if referer else {}
+        try:
+            data = cart_fields(data)
+            if PAYMENT.search(urlparse(url).path) or not self.same_site(url):
+                raise ValueError("Sensitive or cross-site submission blocked")
+        except ValueError:
+            self.log.append("POST blocked by privacy policy")
+            return Page(url, 0, "")
+        headers = {"Referer": safe_url(referer, log=True)} if referer else {}
         try:
             if multipart:
                 boundary = "----AgentReady" + secrets.token_hex(8)
@@ -200,10 +225,10 @@ class Browser:
             else:
                 headers["Content-Type"] = "application/x-www-form-urlencoded"
                 r = await safe_request(self.client, "POST", url, content=urlencode(data).encode(), headers=headers)
-            self.log.append(f"POST {url} -> {r.status_code}")
-            return Page(str(r.url), r.status_code, r.text, r.headers.get("content-type", ""))
+            self.log.append(f"POST {safe_url(url, log=True)} -> {r.status_code}")
+            return Page(str(r.url), r.status_code, scrub_html(r.text), r.headers.get("content-type", ""))
         except httpx.HTTPError as err:
-            self.log.append(f"POST {url} -> error {type(err).__name__}")
+            self.log.append(f"POST {safe_url(url, log=True)} -> error {type(err).__name__}")
             return Page(url, 0, "")
 
     async def get_many(self, urls: list[str], limit: int = 6) -> list[Page]:
@@ -221,6 +246,6 @@ async def fresh_get(url: str) -> Page:
     async with public_client(headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT) as c:
         try:
             r = await safe_request(c, "GET", url)
-            return Page(str(r.url), r.status_code, r.text, r.headers.get("content-type", ""))
+            return Page(str(r.url), r.status_code, scrub_html(r.text), r.headers.get("content-type", ""))
         except httpx.HTTPError:
             return Page(url, 0, "")

@@ -1,3 +1,8 @@
+> Security update: Fixer requesters must be enrolled with an exact repo/site binding.
+> Automatic/chat-based merges are disabled. A real isolated runner is still needed
+> for the historical local before/after Fixer flow; setting an environment flag
+> alone does not provide isolation. See [SECURITY-REVIEW.md](../SECURITY-REVIEW.md).
+
 # AgentReady agents (Fetch.ai)
 
 ![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)

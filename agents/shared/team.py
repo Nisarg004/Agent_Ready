@@ -6,14 +6,19 @@ and from a short timer that picks up tasks other agents have posted.
 
 from __future__ import annotations
 
+from shared.privacy import redact_text
+
+
 import asyncio
 import os
 import re
 import time
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, TYPE_CHECKING
 
-from uagents import Context
-from uagents_core.contrib.protocols.chat import ChatMessage, EndSessionContent, TextContent
+if TYPE_CHECKING:
+    from uagents import Context
+    from uagents_core.contrib.protocols.chat import ChatMessage
+from shared.authorization import authorized, bound_site
 
 from fixer_agent import github
 from shared import memory, sites
@@ -22,9 +27,9 @@ from shared import memory, sites
 AGENTS = {"agentready": "AgentReady", "tester": "Tester", "fixer": "Fixer"}
 
 # The Fixer opens a pull request on its own after a failed test, when the repo is known and allowed.
-AUTO_FIX = os.getenv("TEAM_AUTO_FIX", "true").lower() == "true"
+AUTO_FIX = os.getenv("TEAM_AUTO_FIX", "false").lower() == "true"
 # The Fixer also merges its pull request (which deploys the store) without waiting for "merge".
-AUTO_MERGE = os.getenv("TEAM_AUTO_MERGE", "false").lower() == "true"
+AUTO_MERGE = False  # All merges require review in GitHub.
 # A fix that is queued, running, waiting for "apply" or waiting for a merge isn't requested again.
 FIX_IN_HAND = {"requested", "working", "waiting", "done", "draft", "merging", "merged"}
 
@@ -123,7 +128,8 @@ async def first_in_a_while(user: str, what: str, seconds: int = QUIET_S) -> bool
 
 def chat_message(text: str, end: bool = True) -> ChatMessage:
     """end=False keeps the chat session open, so later updates still show in the user's conversation."""
-    content = [TextContent(type="text", text=text)]
+    from uagents_core.contrib.protocols.chat import ChatMessage, EndSessionContent, TextContent
+    content = [TextContent(type="text", text=redact_text(text))]
     if end:
         content.append(EndSessionContent(type="end-session"))
     return ChatMessage(content=content)
@@ -168,13 +174,16 @@ async def start_fix(by: str, user: str, known: dict, task: str | None = None) ->
     if not github.allowed(owner, name):
         return (f"`{repo}` isn't connected to AgentReady yet, so the Fixer can't change it. "
                 "Ask the AgentReady team to add it to the Fixer's allowed repos (`FIXER_ALLOWED_REPOS`).")
+    site = site or bound_site(user, repo)
+    if not site or not authorized(user, repo, site):
+        return "Fixer access denied: an operator must verify and bind your requester ID, repository and site first."
     state = known.get("fix_state") if not site or known.get("fix_site") == site else None
     if state in ("requested", "working") and time.time() - known.get("fix_at", 0) > STUCK_S:
         state = None  # the job died (e.g. a restart): let the user start again
     if state in ("requested", "working"):
         return f"The Fixer is already working on {site}. I'll pass its updates on to you here."
     if state == "done" and known.get("pr_url"):
-        return f"The fix for {site} is ready: {known['pr_url']}\n\nReply **merge** and I'll merge it and have the Tester check the live site."
+        return f"The fix for {site} is ready: {known['pr_url']}\n\nReview and merge it in GitHub, then ask the Tester to retest the live site."
     if state in ("merging", "merged"):
         return f"The fix for {site} is merged. The Tester is checking the live site; I'll send you the result here."
     await memory.update(user, fix="requested", fix_state="requested", fix_site=site, pending="", fix_at=time.time())
@@ -199,18 +208,11 @@ async def request_fix(by: str, user: str, known: dict, passed: int, task: str | 
 
 async def start_merge(by: str, user: str, known: dict) -> str:
     """The user approved the Fixer's pull request: merge it, then have the Tester check the live site."""
-    pr_url, repo = known.get("pr_url"), known.get("repo")
-    if pr_url and known.get("fix_state") == "draft":
-        return f"{pr_url} is a draft: the change isn't a clean win yet, so I won't merge it. Review it on GitHub, or say **fix it** to try again."
-    if not pr_url or known.get("fix_state") != "done":
-        return "There's no pull request waiting to be merged."
-    await memory.update(user, fix="merging", fix_state="merging")
-    await memory.post_task("fixer", "merge", user, repo=repo, pr_url=pr_url, site=known.get("site"),
-                           task=known.get("task") or "any product", by=by)
-    return f"Merging {pr_url}. Once the site has redeployed, the Tester will check it live and I'll send you the result."
+    return "Chat-based merging is disabled. Review and merge the pull request in GitHub."
 
 
-Handler = Callable[[Context, dict], Awaitable[None]]
+
+Handler = Callable[..., Awaitable[None]]
 
 
 async def pump(ctx: Context, me: str, handlers: dict[str, Handler]):
