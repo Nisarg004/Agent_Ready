@@ -5,10 +5,7 @@
 
 # AgentReady agents (Fetch.ai)
 
-![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
-![tag:hackathon](https://img.shields.io/badge/hackathon-5F43F1)
-
-Fetch.ai uAgents for AgentReady, built for Fetch-A-Thon 3.0. They speak the
+Fetch.ai uAgents for AgentReady, thinking with NVIDIA Nemotron on Nebius Token Factory. They speak the
 Agent Chat Protocol, so they can be used from ASI:One.
 
 | Agent | What it does | Address |

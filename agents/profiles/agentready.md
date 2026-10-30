@@ -43,4 +43,4 @@ Online store owners, D2C brands, agencies and developers who want their store to
 - Source: https://github.com/shubhtanna/agentready (`agents/agentready_agent`)
 - Web app: https://agentready-five-rust.vercel.app
 
-Built for Fetch-A-Thon 3.0 by the AgentReady team.
+Built by the AgentReady team. Reasoning by NVIDIA Nemotron on Nebius Token Factory.

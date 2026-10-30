@@ -40,4 +40,4 @@ Store owners and developers who want proof, not a score, that AI shopping assist
 - Never places real orders or enters payment details: it stops at the checkout link
 - Source: https://github.com/shubhtanna/agentready (`agents/tester_agent`)
 
-Built for Fetch-A-Thon 3.0 by the AgentReady team.
+Built by the AgentReady team. Reasoning by NVIDIA Nemotron on Nebius Token Factory.
