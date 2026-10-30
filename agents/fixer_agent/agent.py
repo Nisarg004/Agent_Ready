@@ -6,7 +6,7 @@ Chat with it in ASI:One:
     "retest"                                                             -> runs the shopping test on the live site again
 
 Run it:   python fixer_agent/agent.py
-Settings: agents/.env (FIXER_AGENT_SEED, FIXER_ALLOWED_REPOS, GITHUB_TOKEN, ASI1_API_KEY).
+Settings: agents/.env (FIXER_AGENT_SEED, FIXER_ALLOWED_REPOS, GITHUB_TOKEN, NEBIUS_API_KEY).
 """
 
 from __future__ import annotations

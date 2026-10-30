@@ -9,11 +9,15 @@
 ![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
 ![tag:hackathon](https://img.shields.io/badge/hackathon-5F43F1)
 ![Fetch.ai uAgents](https://img.shields.io/badge/Fetch.ai-uAgents-1D2B53)
-![ASI:One](https://img.shields.io/badge/ASI%3AOne-asi1-6C4CF1)
+![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron-76B900?logo=nvidia&logoColor=white)
+![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory-052B42)
+![ASI:One](https://img.shields.io/badge/ASI%3AOne-chat-6C4CF1)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Node%20%2B%20React-3178C6?logo=typescript&logoColor=white)
 
-Built at **Fetch-A-Thon 3.0** · Masters' Union × Fetch.ai × Innovation Lab × GeeksforGeeks
+Submitted to the **Nebius × NVIDIA Global AI Hackathon** · Best Apps and Agents track<br>
+The agents think with **NVIDIA Nemotron on Nebius Token Factory** · first built at Fetch-A-Thon 3.0
 
 [![Watch the demo video](https://img.shields.io/badge/▶%20Watch%20the%20demo%20video-9%20min-D7192A?style=for-the-badge)](https://drive.google.com/file/d/1zL5EpB6Fkmsgs4uQJxce62DRJo8xgLJ9/view?usp=sharing)
 [![Try the live demo store](https://img.shields.io/badge/🛒%20Live%20demo%20store-Kaapi%20Collective-10D98A?style=for-the-badge)](https://kaapi-collective.vercel.app)
@@ -113,13 +117,15 @@ flowchart LR
 
     AR -- "chat protocol<br/>(Agentverse mailbox)" --> T
     AR --> API[Scanner API<br/>Node + TypeScript]
+    AR -. "intent" .-> NB[(NVIDIA Nemotron<br/>on Nebius Token Factory)]
+    F -. "tool-calling<br/>coding loop" .-> NB
     F --> GH[(Store's GitHub repo<br/>pull request)]
     F -. "before / after test<br/>on a local build" .-> T
     T --> S[Live store]
 ```
 
 - **Agent Chat Protocol on Agentverse.** All three agents are [uAgents](https://github.com/fetchai/uAgents) that publish the chat protocol manifest and connect through Agentverse mailboxes, so ASI:One can discover and talk to them.
-- **ASI:One's own model (`asi1`) for reasoning.** It reads intent from chat messages, and drives the Fixer's tool-calling coding loop.
+- **NVIDIA Nemotron on Nebius Token Factory for reasoning.** A fast Nemotron model reads intent from chat messages; a larger Nemotron drives the Fixer's tool-calling coding loop. See [Nemotron on Nebius](#nemotron-on-nebius-token-factory).
 - **Shared memory.** Whatever you tell one agent (site, repo, shopping task, scan, test result, fix status), the others know. Say `status` to any of them.
 - **Hand-offs.** Agents post tasks to each other through a Redis queue. The Fixer's progress (install, test, code, check, pull request) is relayed live through the agent you are chatting with, and the chat session stays open until the final result, so it all stays in one conversation.
 - **Ready to buy.** When an agent can complete the purchase, the reply starts with the chosen product, its price and a checkout link with the product already in the cart. If the store needs something first (for example a minimum order value), it says so.
@@ -162,21 +168,49 @@ Demo stores on common stacks, each built the way real stores usually are, not br
 
 After the pull requests were merged, the Tester scored **5/5 on every live store**. Kaapi Collective was fixed end to end from a single ASI:One chat, as shown in the demo video. The checkout links it handed over were then used to place demo orders as a human would (Nest & Grain `NG-MVJ6W8DN`, Masala Mandi `MM2652303`, Tara Handmade `TH342453`, Stride Lab `SL52386880`). Raw reports are in [`agents/results/`](agents/results).
 
+## Nemotron on Nebius Token Factory
+
+Every model call the agents make goes to **NVIDIA Nemotron** through the **Nebius Token Factory** inference API (OpenAI-compatible, `https://api.tokenfactory.nebius.com/v1/`). The choice of provider and model lives in one file, [`agents/shared/llm.py`](agents/shared/llm.py).
+
+| Where | Model (default, set in `.env`) | Why this size |
+|---|---|---|
+| **AgentReady**: read what the owner wants from a chat message (scan which site, what to shop for) | `NEBIUS_CHAT_MODEL` = Nemotron Nano | Runs on every message, so it must be fast and cheap. Sent with `/no_think`: routing needs no long reasoning. |
+| **Fixer**: the tool-calling loop that reads the store's code, edits it, builds it and runs the shopping test until it passes | `NEBIUS_CODER_MODEL` = Nemotron Super | Multi-step reasoning over a real codebase with up to 60 tool calls per fix. |
+
+How Token Factory helps the workflow:
+
+- **One OpenAI-compatible endpoint** for both models, so swapping the model is one environment variable and no code change.
+- **Right-sized models per job**: the Nano handles the high-volume chat routing, the Super handles the rare but heavy code changes, so the chat stays responsive and credits last longer.
+- **Streaming with tool calls** keeps long file writes from timing out during a fix.
+
+Check your key and see the exact model ids your account can use:
+
+```bash
+cd agents
+python tools/list_models.py --ping
+```
+
+If `NEBIUS_API_KEY` is empty, the agents fall back to ASI:One (`ASI1_API_KEY`), and with no key at all AgentReady still understands store addresses with simple rules.
+
+### What changed during the Nebius × NVIDIA hackathon
+
+AgentReady started at Fetch-A-Thon 3.0 on ASI:One's model. For this hackathon we moved the agents' reasoning to NVIDIA Nemotron on Nebius Token Factory: a provider layer with a small model for chat routing and a large model for the coding loop, handling for Nemotron's reasoning output, a model-check tool, an MIT license and these docs.
+
 ## Repository layout
 
 | Folder | What it is |
 |---|---|
 | [`agents/`](agents) | The three Fetch.ai uAgents (Python), shared memory and hand-offs, Dockerfile. See [`agents/README.md`](agents/README.md). |
-| [`agents/agentready_agent/`](agents/agentready_agent) | AgentReady: chat wiring, intent understanding (`asi1`), scan, routing to the Tester and Fixer |
+| [`agents/agentready_agent/`](agents/agentready_agent) | AgentReady: chat wiring, intent understanding (Nemotron), scan, routing to the Tester and Fixer |
 | [`agents/tester_agent/`](agents/tester_agent) | Tester: the five shopping steps and a plain-HTTP "browser" |
-| [`agents/fixer_agent/`](agents/fixer_agent) | Fixer: stack detection, fix playbook, `asi1` coding loop, local build and test, GitHub PRs |
-| [`agents/shared/`](agents/shared) | Shared memory, task queue and team hand-offs (Redis) |
+| [`agents/fixer_agent/`](agents/fixer_agent) | Fixer: stack detection, fix playbook, Nemotron coding loop, local build and test, GitHub PRs |
+| [`agents/shared/`](agents/shared) | Shared memory, task queue and team hand-offs (Redis); `llm.py` picks the Nemotron models on Nebius |
 | [`agentready-api/`](agentready-api) | Scanner API: Node, TypeScript, Express, MongoDB. Seven checks, 0–100 score and grade, ready-to-paste fixes. See [`ARCHITECTURE.md`](agentready-api/ARCHITECTURE.md). |
 | [`web/`](web) | Web app: React, Vite, Tailwind. Scan page and report UI. |
 
 ## Tech stack
 
-**Agents:** Python 3.11, Fetch.ai uAgents 0.25, Agent Chat Protocol, Agentverse mailbox, ASI:One `asi1` (OpenAI-compatible API), Redis, httpx, BeautifulSoup<br>
+**Agents:** Python 3.11, Fetch.ai uAgents 0.25, Agent Chat Protocol, Agentverse mailbox, NVIDIA Nemotron on Nebius Token Factory (OpenAI-compatible API), Redis, httpx, BeautifulSoup<br>
 **Scanner API:** Node.js, TypeScript, Express, MongoDB<br>
 **Web app:** React 18, Vite, Tailwind CSS<br>
 **Hosting:** Railway (agents + Redis), Render (API), Vercel (web app and demo stores)
@@ -195,7 +229,7 @@ pip install -r requirements.txt
 cp .env.example .env             # then fill it in
 ```
 
-In `.env`, set a long secret phrase for each `*_AGENT_SEED` and your [ASI:One API key](https://asi1.ai/dashboard/api-keys). Without `REDIS_URL`, memory stays inside one process, which is enough to try the agents locally.
+In `.env`, set a long secret phrase for each `*_AGENT_SEED` and your [Nebius Token Factory API key](https://tokenfactory.nebius.com) as `NEBIUS_API_KEY`. Run `python tools/list_models.py` to check it. Without `REDIS_URL`, memory stays inside one process, which is enough to try the agents locally.
 
 ```bash
 python tools/local_chat_test.py "Is example.com ready for AI shoppers?"     # agent + test client, no Agentverse needed
@@ -232,6 +266,10 @@ Key settings (see [`agents/.env.example`](agents/.env.example)): `FIXER_ALLOWED_
 - **Repo access:** the Fixer works on repos on its allow-list that its GitHub token can push to. A GitHub App install per store owner is the next step, so owners can connect their own repo in one click.
 - **Stores that need production secrets** (an external database, API keys) can't be reproduced locally, so the Fixer stops rather than guessing.
 - **Next:** the same scan → fix → pull request flow for AI-readiness (visibility to ChatGPT, Gemini and other AI assistants), not only agent checkout.
+
+## License
+
+[MIT](LICENSE)
 
 ## Team
 
