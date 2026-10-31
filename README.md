@@ -17,9 +17,11 @@
 Submitted to the **Nebius × NVIDIA Global AI Hackathon** · Best Apps and Agents track<br>
 The agents think with **NVIDIA Nemotron on Nebius Token Factory**
 
+[![Watch the demo video](https://img.shields.io/badge/▶%20Watch%20the%20demo-YouTube-D7192A?style=for-the-badge)](https://youtu.be/sWj6sEMGSEk)
 [![Chat with AgentReady](https://img.shields.io/badge/💬%20Chat%20with%20AgentReady-Agentverse-6C4CF1?style=for-the-badge)](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile)
 [![Try the test store](https://img.shields.io/badge/🛒%20Test%20store-Dhaga%20Studio-10D98A?style=for-the-badge)](https://ds-tau-liard.vercel.app)
 
+[Demo video](https://youtu.be/sWj6sEMGSEk) ·
 [Chat with AgentReady](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile) ·
 [Web app](https://agentready-five-rust.vercel.app) ·
 [Demo](#demo) ·
@@ -43,6 +45,7 @@ The agents think with **NVIDIA Nemotron on Nebius Token Factory**
 
 | | |
 |---|---|
+| 🎬 **Demo video** | **[Watch on YouTube](https://youtu.be/sWj6sEMGSEk)**: AgentReady with NVIDIA Nemotron on Nebius Token Factory |
 | 🛒 **Test store** | **[ds-tau-liard.vercel.app](https://ds-tau-liard.vercel.app)**: Dhaga Studio, a multi-page handloom store ([code](https://github.com/shubhtanna/dhaga-studio-store)) built the way real stores usually are: prices and the bag only work in the browser. The Tester scores it **1/5**. |
 | 🎬 **Earlier walkthrough** | [Full flow (9 min)](https://drive.google.com/file/d/1zL5EpB6Fkmsgs4uQJxce62DRJo8xgLJ9/view?usp=sharing), recorded before the move to Nemotron and the security hardening: the three agents, a live fix on [Kaapi Collective](https://kaapi-collective.vercel.app) and the merged [pull request](https://github.com/shubhtanna/kaapi-collective-store/pull/1) (**0/5 → 5/5**) |
 | 💬 **Try it yourself** | Open [AgentReady on Agentverse](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile), click **Chat with Agent**, and send a store address |
