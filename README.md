@@ -6,8 +6,6 @@
 
 **Make any online store shoppable by AI agents: scan it, test it like a real AI shopper, fix the code, prove it.**
 
-![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
-![tag:hackathon](https://img.shields.io/badge/hackathon-5F43F1)
 ![Fetch.ai uAgents](https://img.shields.io/badge/Fetch.ai-uAgents-1D2B53)
 ![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron-76B900?logo=nvidia&logoColor=white)
 ![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory-052B42)
@@ -17,11 +15,13 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-Node%20%2B%20React-3178C6?logo=typescript&logoColor=white)
 
 Submitted to the **Nebius × NVIDIA Global AI Hackathon** · Best Apps and Agents track<br>
-The agents think with **NVIDIA Nemotron on Nebius Token Factory** · first built at Fetch-A-Thon 3.0
+The agents think with **NVIDIA Nemotron on Nebius Token Factory**
 
-[![Watch the demo video](https://img.shields.io/badge/▶%20Watch%20the%20demo%20video-9%20min-D7192A?style=for-the-badge)](https://drive.google.com/file/d/1zL5EpB6Fkmsgs4uQJxce62DRJo8xgLJ9/view?usp=sharing)
-[![Try the live demo store](https://img.shields.io/badge/🛒%20Live%20demo%20store-Kaapi%20Collective-10D98A?style=for-the-badge)](https://kaapi-collective.vercel.app)
+[![Watch the demo video](https://img.shields.io/badge/▶%20Watch%20the%20demo-YouTube-D7192A?style=for-the-badge)](https://youtu.be/sWj6sEMGSEk)
+[![Chat with AgentReady](https://img.shields.io/badge/💬%20Chat%20with%20AgentReady-Agentverse-6C4CF1?style=for-the-badge)](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile)
+[![Try the test store](https://img.shields.io/badge/🛒%20Test%20store-Dhaga%20Studio-10D98A?style=for-the-badge)](https://ds-tau-liard.vercel.app)
 
+[Demo video](https://youtu.be/sWj6sEMGSEk) ·
 [Chat with AgentReady](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile) ·
 [Web app](https://agentready-five-rust.vercel.app) ·
 [Demo](#demo) ·
@@ -45,9 +45,9 @@ The agents think with **NVIDIA Nemotron on Nebius Token Factory** · first built
 
 | | |
 |---|---|
-| 🎬 **Demo video** | **[Watch the full demo (9 min)](https://drive.google.com/file/d/1zL5EpB6Fkmsgs4uQJxce62DRJo8xgLJ9/view?usp=sharing)**: problem, the three agents, a live fix in one ASI:One chat, the merged pull request and the shopper's ready-to-pay checkout |
-| 🛒 **Live demo store** | **[kaapi-collective.vercel.app](https://kaapi-collective.vercel.app)**: Kaapi Collective, a Next.js coffee store built fresh for the demo and made agent-ready live in the video |
-| 🔧 **The fix it got** | [kaapi-collective-store#1](https://github.com/shubhtanna/kaapi-collective-store/pull/1): opened by the Fixer agent, **0/5 → 5/5**, merged |
+| 🎬 **Demo video** | **[Watch on YouTube](https://youtu.be/sWj6sEMGSEk)**: AgentReady with NVIDIA Nemotron on Nebius Token Factory |
+| 🛒 **Test store** | **[ds-tau-liard.vercel.app](https://ds-tau-liard.vercel.app)**: Dhaga Studio, a multi-page handloom store ([code](https://github.com/shubhtanna/dhaga-studio-store)) built the way real stores usually are: prices and the bag only work in the browser. The Tester scores it **1/5**. |
+| 🎬 **Earlier walkthrough** | [Full flow (9 min)](https://drive.google.com/file/d/1zL5EpB6Fkmsgs4uQJxce62DRJo8xgLJ9/view?usp=sharing), recorded before the move to Nemotron and the security hardening: the three agents, a live fix on [Kaapi Collective](https://kaapi-collective.vercel.app) and the merged [pull request](https://github.com/shubhtanna/kaapi-collective-store/pull/1) (**0/5 → 5/5**) |
 | 💬 **Try it yourself** | Open [AgentReady on Agentverse](https://agentverse.ai/agents/details/agent1qwl5c4d77prydcy4skseaktuwquy6qwdp68fv5fqrkdgfvx3ph9uc6w8a2v/profile), click **Chat with Agent**, and send a store address |
 
 ## The problem
@@ -153,7 +153,7 @@ flowchart LR
 
 ### What the Fixer changes
 
-It maps failed steps to generic fixes (nothing store-specific) and implements them in the store's own stack: **Next.js, Vite (React/Vue/Svelte), Node/Express, Flask, Django or plain HTML**, including stores in a sub-folder of a monorepo (`frontend/`, `web/`, `apps/*`). Before changing anything it installs and builds the store locally (running Django migrations so the catalogue loads), and stops if that local copy doesn't behave like the live site, so every before/after result is real.
+It maps failed steps to generic fixes (nothing store-specific) and implements them in the store's own stack: **Next.js, Vite (React/Vue/Svelte), Node/Express, Flask, Django or plain HTML**, including stores in a sub-folder of a monorepo (`frontend/`, `web/`, `apps/*`). When an operator turns on isolated execution (`FIXER_ISOLATED_EXECUTION=1`, only inside a disposable sandbox), it also installs and builds the store locally, tests the original and the patched copy, and stops if the local copy doesn't behave like the live site. By default this is off: running a stranger's repository means running their code. See [SECURITY-NOTES.md](SECURITY-NOTES.md).
 
 - Let AI shopping agents in through `robots.txt`
 - Make products readable without JavaScript (build-time or server-rendered pages)
@@ -163,7 +163,7 @@ It maps failed steps to generic fixes (nothing store-specific) and implements th
 
 ## Results
 
-Demo stores on common stacks, each built the way real stores usually are, not broken on purpose. Same Tester, same task, before and after the Fixer's pull request.
+Demo stores on common stacks, each built the way real stores usually are, not broken on purpose. Same Tester, same task, before and after the Fixer's pull request. These runs were recorded with local before/after testing switched on, before the security hardening made it opt-in.
 
 | Store | Stack | Before | After | Pull request |
 |---|---|:-:|:-:|---|
@@ -202,7 +202,13 @@ If `NEBIUS_API_KEY` is empty, the agents fall back to ASI:One (`ASI1_API_KEY`), 
 
 ### What changed during the Nebius × NVIDIA hackathon
 
-AgentReady started at Fetch-A-Thon 3.0 on ASI:One's model. For this hackathon we moved the agents' reasoning to NVIDIA Nemotron on Nebius Token Factory: a provider layer with a small model for chat routing and a large model for the coding loop, handling for Nemotron's reasoning output, a model-check tool, an MIT license and these docs.
+AgentReady's first version ran on ASI:One's model. During this hackathon we made three major updates:
+
+1. **NVIDIA Nemotron on Nebius Token Factory.** All agent reasoning moved to Nemotron: a small model for chat routing and a large model for the coding loop, behind one provider layer ([`agents/shared/llm.py`](agents/shared/llm.py)), with handling for Nemotron's reasoning output and a model-check tool.
+2. **SSRF protection.** The scanner and the Tester only reach public websites: every DNS answer is validated and pinned, and private networks, DNS rebinding, unsafe redirects, non-standard ports and proxies are blocked. The Fixer's file tools refuse credentials and path traversal, and repository execution is off by default. See [SECURITY-NOTES.md](SECURITY-NOTES.md).
+3. **Privacy and access control.** Personal data is redacted before it reaches Nemotron, logs or reports; chat memory expires after 24 hours; the Tester never fills in customer details or submits a checkout. Only operator-enrolled requester/repo/site bindings can use the Fixer, agents can't merge pull requests, and rate limits and CORS are stricter. See [PRIVACY.md](PRIVACY.md) and [SECURITY-REVIEW.md](SECURITY-REVIEW.md).
+
+We also added an MIT license, regression tests and a new test store, [Dhaga Studio](https://ds-tau-liard.vercel.app).
 
 ## Repository layout
 
@@ -266,12 +272,13 @@ npm run dev          # API on :5100 with an in-memory MongoDB, web app on :5173
 | Scanner API | Render | [`render.yaml`](render.yaml) |
 | Web app | Vercel | `web/` |
 
-Key settings (see [`agents/.env.example`](agents/.env.example)): `FIXER_ALLOWED_REPOS` (which repos the Fixer may change), `GITHUB_TOKEN` (contents and pull requests: read and write), `TEAM_AUTO_FIX`, `TEAM_AUTO_MERGE`.
+Key settings (see [`agents/.env.example`](agents/.env.example)): `NEBIUS_API_KEY`, `NEBIUS_CHAT_MODEL` and `NEBIUS_CODER_MODEL` (Nemotron on Token Factory), `FIXER_ALLOWED_REPOS` and `FIXER_REQUESTER_BINDINGS` (who may ask the Fixer to change which repo), `GITHUB_TOKEN` (contents and pull requests: read and write), `TEAM_AUTO_FIX`.
 
 ## Limitations and what's next
 
 - **Stacks:** Nuxt, Astro, SvelteKit, WordPress and Shopify stores can be scanned and tested today, but the Fixer can't change them yet.
 - **Repo access:** the Fixer works on repos on its allow-list that its GitHub token can push to. A GitHub App install per store owner is the next step, so owners can connect their own repo in one click.
+- **Sandboxed execution:** a disposable, isolated runner so the Fixer's before/after test can be switched back on safely (see [SECURITY-REVIEW.md](SECURITY-REVIEW.md)).
 - **Stores that need production secrets** (an external database, API keys) can't be reproduced locally, so the Fixer stops rather than guessing.
 - **Next:** the same scan → fix → pull request flow for AI-readiness (visibility to ChatGPT, Gemini and other AI assistants), not only agent checkout.
 
@@ -288,4 +295,3 @@ Key settings (see [`agents/.env.example`](agents/.env.example)): `FIXER_ALLOWED_
 | **Bharat Gupta** | |
 | **Manaswi Mittal** | |
 
-Built at Fetch-A-Thon 3.0, hosted by [Masters' Union](https://mastersunion.org) with [Fetch.ai](https://fetch.ai), [Innovation Lab by Fetch.ai](https://innovationlab.fetch.ai), [GeeksforGeeks](https://www.geeksforgeeks.org), [Agentverse](https://agentverse.ai) and [ASI:One](https://asi1.ai).

@@ -34,4 +34,4 @@ Store owners and developers who want their store to work with ChatGPT, Claude, G
 - Never changes prices, products, design or business rules, and never weakens security checks
 - Source: https://github.com/shubhtanna/agentready (`agents/fixer_agent`)
 
-Built for Fetch-A-Thon 3.0 by the AgentReady team.
+Built by the AgentReady team. Reasoning by NVIDIA Nemotron on Nebius Token Factory.
