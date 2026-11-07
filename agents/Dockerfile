@@ -1,4 +1,5 @@
-# One image for all three agents. AGENT_SCRIPT picks which one a service runs.
+# One image for all three agents. AGENT_SCRIPT picks which one a service runs;
+# The default, start_all.sh, runs all three in one container (one free Render service).
 FROM python:3.11-slim
 
 # The Fixer clones repos and builds stores locally, so it needs git and Node.
@@ -14,5 +15,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV AGENT_MAILBOX=true PYTHONUNBUFFERED=1 AGENT_SCRIPT=agentready_agent/agent.py
-CMD ["sh", "-c", "python $AGENT_SCRIPT"]
+ENV AGENT_MAILBOX=true PYTHONUNBUFFERED=1 AGENT_SCRIPT=start_all.sh
+CMD ["sh", "-c", "case \"$AGENT_SCRIPT\" in *.sh) exec sh \"$AGENT_SCRIPT\" ;; *) exec python \"$AGENT_SCRIPT\" ;; esac"]
